@@ -5,7 +5,7 @@ import '@fontsource/barlow-condensed/700.css';
 import './style.css';
 import { registerSW } from 'virtual:pwa-register';
 import { $, ICON } from './dom';
-import { watchGps, type Fix, type GpsState } from './geo';
+import { restartGps, watchGps, type Fix, type GpsState } from './geo';
 import { handleFlowAction, initFlow, knock, knockHint } from './flow';
 import { tally } from './logic';
 import { DoorMap } from './map';
@@ -25,7 +25,8 @@ function renderTally(): void {
 }
 
 function renderNotice(): void {
-  if (gps === 'blocked') return notice('Location is off. In iPhone Settings, allow Location for Safari or Door2Door.');
+  if (gps === 'blocked')
+    return notice('Location is blocked. Swipe Door2Door away, reopen it and tap Allow when asked. Tap here to try again.', restartGps);
   if (gps === 'unsupported') return notice('This browser cannot give a GPS position.');
   const last = store.meta['lastBackup'] as number | undefined;
   const stale = !last || Date.now() - last > 7 * 86400000;
@@ -115,6 +116,10 @@ async function boot(): Promise<void> {
       renderNotice();
     }
   );
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && gps !== 'ok') restartGps();
+  });
 
   setView('map');
   changed();

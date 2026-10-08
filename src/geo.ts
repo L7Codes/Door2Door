@@ -39,17 +39,39 @@ export async function lookup(lat: number, lng: number, ms = 3500): Promise<Looku
 
 export type GpsState = 'waiting' | 'ok' | 'blocked' | 'unsupported';
 
-export function watchGps(onFix: (f: Fix) => void, onState: (s: GpsState) => void): void {
+let watchId: number | null = null;
+let cbFix: ((f: Fix) => void) | null = null;
+let cbState: ((s: GpsState) => void) | null = null;
+
+function begin(): void {
+  if (!cbFix || !cbState) return;
   if (!('geolocation' in navigator)) {
-    onState('unsupported');
+    cbState('unsupported');
     return;
   }
-  navigator.geolocation.watchPosition(
+  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+  const onFix = cbFix;
+  const onState = cbState;
+  watchId = navigator.geolocation.watchPosition(
     (p) => {
       onState('ok');
       onFix({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
     },
-    (e) => onState(e.code === 1 ? 'blocked' : 'waiting'),
+    (e) => {
+      // Code 1 = permission refused. On an iPhone Home Screen app this lasts until the app is closed and reopened.
+      onState(e.code === 1 ? 'blocked' : 'waiting');
+    },
     { enableHighAccuracy: true, maximumAge: 2000, timeout: 20000 }
   );
+}
+
+export function watchGps(onFix: (f: Fix) => void, onState: (s: GpsState) => void): void {
+  cbFix = onFix;
+  cbState = onState;
+  begin();
+}
+
+/** Ask again. Call from a tap or when the app comes back to the front. */
+export function restartGps(): void {
+  begin();
 }
