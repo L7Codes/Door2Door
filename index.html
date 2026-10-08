@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#0e151c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Door2Door">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Door2Door</title>
+</head>
+<body>
+<div id="app">
+  <header id="top">
+    <div id="tally" aria-label="Today's totals"></div>
+  </header>
+  <main id="stage">
+    <div id="map"></div>
+    <section id="roads" hidden></section>
+    <div class="fab-col">
+      <button class="fab" id="btn-layers" aria-label="Switch map and satellite" aria-pressed="false"></button>
+      <button class="fab" id="btn-locate" aria-label="Centre on my position"></button>
+    </div>
+    <div id="notice" role="status" hidden></div>
+    <div id="toast" role="status" hidden></div>
+    <div id="scrim" hidden></div>
+    <div id="sheet" role="dialog" aria-modal="true" hidden></div>
+  </main>
+  <nav id="bar">
+    <button class="nav" id="nav-roads" aria-pressed="false"></button>
+    <button id="knock"><span class="k-main">Knock here</span><span class="k-sub" id="k-sub"></span></button>
+    <button class="nav" id="nav-menu"></button>
+  </nav>
+</div>
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
