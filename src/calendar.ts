@@ -73,7 +73,10 @@ export function eventFor(h: House, road: Road | null, now: Date, withNotes: bool
   }
   lines.push(`LOCATION:${esc([where, h.pc].filter(Boolean).join(', '))}`);
   lines.push(`DESCRIPTION:${esc([purpose(h), note, 'Added from Door2Door'].filter(Boolean).join('\n'))}`);
-  lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(purpose(h))}`, timed ? 'TRIGGER:-PT60M' : 'TRIGGER:PT9H', 'END:VALARM', 'END:VEVENT');
+  // Appointments matter most: remind 24 hours, 12 hours and 2 hours before. Check-backs get one 9am reminder.
+  for (const t of timed ? ['-P1D', '-PT12H', '-PT2H'] : ['PT9H'])
+    lines.push('BEGIN:VALARM', 'ACTION:DISPLAY', `DESCRIPTION:${esc(purpose(h))}`, `TRIGGER:${t}`, 'END:VALARM');
+  lines.push('END:VEVENT');
   return lines;
 }
 

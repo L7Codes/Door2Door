@@ -32,6 +32,9 @@ describe('buildIcs', () => {
     expect(text).toContain('DTSTART:20261012T183000');
     expect(text).toContain('DTEND:20261012T193000');
     expect(text).not.toContain('secret');
+    expect(text).toContain('TRIGGER:-P1D');
+    expect(text).toContain('TRIGGER:-PT12H');
+    expect(text).toContain('TRIGGER:-PT2H');
   });
   it('skips houses with no date', () => {
     expect(buildIcs([house({ status: 'no' })], [road], true, new Date(NOW)).count).toBe(0);
