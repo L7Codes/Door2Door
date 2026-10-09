@@ -1,4 +1,4 @@
-import type { Cursor, House, Road, Snapshot } from './types';
+import type { Cursor, DayRecord, House, Road, Snapshot } from './types';
 
 const DB_NAME = 'door2door';
 const DB_VERSION = 1;
@@ -114,7 +114,8 @@ class Store {
     return {
       houses: structuredClone(this.houses),
       roads: structuredClone(this.roads),
-      cursor: structuredClone(this.cursor)
+      cursor: structuredClone(this.cursor),
+      days: structuredClone(Object.values((this.meta['days'] as Record<string, DayRecord> | undefined) ?? {}))
     };
   }
 
@@ -132,6 +133,7 @@ class Store {
       s.roads.forEach((r) => st.put(r));
     });
     await this.setMeta('cursor', s.cursor);
+    await this.setMeta('days', Object.fromEntries((s.days ?? []).map((d) => [d.date, d])));
   }
 
   road(id: string | null): Road | null {

@@ -1,10 +1,12 @@
 import { $, esc } from './dom';
 import { makeBackup, parseBackup, saveFile, toCsv } from './backup';
-import { mergeSnapshots, shortDate } from './logic';
+import { addHist, inDays, mergeSnapshots, shortDate } from './logic';
+import { allDays, dateLabel, hhmm, markShown, pct, saveDay, summaryText, today } from './day';
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Road, Status } from './types';
-import { STATUS_LABEL, STATUS_ORDER } from './types';
+import { isStage, STAGE_DAYS, STATUS_LABEL, STATUS_ORDER } from './types';
+import type { DayRecord } from './types';
 
 interface Hooks {
   changed: () => void;
@@ -47,13 +49,16 @@ export function openRename(id: string): void {
 }
 
 export function handleViewAction(a: string, el: HTMLElement): boolean {
+  if (handleDayAction(a, el)) return true;
   const id = el.dataset['id'] ?? '';
   const val = (x: string): string => ($(x) as HTMLInputElement).value;
   switch (a) {
     case 'set-status': {
       const h = store.house(id);
       if (h) {
-        void store.putHouse({ ...h, status: el.dataset['s'] as Status, ts: Date.now() }).then(() => {
+        const st = el.dataset['s'] as Status;
+        const appt = isStage(st) ? inDays(STAGE_DAYS[st] ?? 0) : isStage(h.status) ? '' : h.appt;
+        void store.putHouse({ ...h, status: st, appt, hist: addHist(h.hist, st), ts: Date.now() }).then(() => {
           hooks.changed();
           openHouse(id);
         });
@@ -221,9 +226,86 @@ export function renderRoads(): void {
       const sorted = [...houses].sort((a, b) => (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0));
       return `<article class="road"><header><h3>${esc(road?.name ?? 'Needs a road')}</h3>
         <p>${esc(road?.area ?? '')} ${road ? '' : 'Pins dropped without a road name.'}</p>
-        <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') ? ` · ${c('empty')} empty` : ''}</p></header>
-        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([h.status === 'empty' && h.appt ? `Empty, check back ${shortDate(h.appt)}` : STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
+        <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') + c('reserved') + c('movingin') ? ` · ${c('empty') + c('reserved') + c('movingin')} empty` : ''}</p></header>
+        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([isStage(h.status) && h.appt ? `${STATUS_LABEL[h.status]}, check back ${shortDate(h.appt)}` : STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
         ${road ? `<button class="btn sm" data-rename="${road.id}">Rename road</button>` : ''}</article>`;
     })
     .join('');
+}
+
+// ---------- Your day
+
+const row = (n: number | string, label: string, cls = ''): string => `<div class="drow ${cls}"><b>${n}</b><span>${label}</span></div>`;
+
+function dayBody(r: DayRecord): string {
+  const withSomeone = r.doors - r.stages;
+  const nudge = r.sale ? 'A sale on the board.' : r.appt ? 'Appointments booked. That is the job.' : r.doors >= 100 ? 'Big day on the doors.' : r.doors ? 'Doors knocked is progress.' : '';
+  return `<div class="dbig"><b>${r.doors}</b><span>doors knocked</span></div>
+    ${nudge ? `<p class="nudge">${nudge}</p>` : ''}
+    <div class="dgrid">${row(r.noanswer, 'No answer', 's-noanswer')}${row(r.answered, 'Answered', 'ans')}</div>
+    <div class="dgrid four">${row(r.no, 'Not interested', 's-no')}${row(r.follow, 'Follow-up', 's-follow')}${row(r.appt, 'Appointments', 's-appt')}${row(r.sale, 'Sales', 's-sale')}</div>
+    ${r.stages ? `<p class="dline">${r.stages} empty or new-build house${r.stages === 1 ? '' : 's'} logged to check back on.</p>` : ''}
+    ${r.doors ? `<p class="dline">${pct(r.answered, withSomeone)}% of doors with someone in were answered. ${r.roads} road${r.roads === 1 ? '' : 's'}, ${hhmm(r.first)} to ${hhmm(r.last)}.</p>` : '<p class="dline">No doors yet.</p>'}`;
+}
+
+export function openDay(): void {
+  const r = today();
+  const past = allDays().filter((d) => d.date !== r.date && d.doors > 0).slice(0, 14);
+  sheet.show(`<h2>Today</h2><p>${esc(dateLabel(r.date))}. Counts from midnight.</p>${dayBody(r)}
+    <div class="row"><button class="btn pri big" data-a="day-finish">Day knocking done</button><button class="btn big" data-a="day-share" data-date="${r.date}">Send summary</button></div>
+    ${past.length ? `<label>Past days</label><div class="pastdays">${past.map((d) => `<button class="hrow" data-a="day-open" data-date="${d.date}"><b>${esc(dateLabel(d.date).replace(/^(\w{3})\w*/, '$1'))}</b><span class="what">${d.doors} doors · ${d.answered} answered · ${d.appt} booked · ${d.sale} sold</span></button>`).join('')}</div>` : ''}
+    <div class="row"><button class="btn quiet" data-a="close">Close</button></div>`);
+}
+
+export function openPastDay(date: string, intro = ''): void {
+  const r = allDays().find((d) => d.date === date);
+  if (!r) return;
+  sheet.show(`<h2>${esc(intro || dateLabel(r.date))}</h2>${intro ? `<p>${esc(dateLabel(r.date))}</p>` : ''}${dayBody(r)}
+    <div class="row"><button class="btn big" data-a="day-share" data-date="${r.date}">Send summary</button><button class="btn big" data-a="close">Close</button></div>`);
+}
+
+export async function showYesterday(r: DayRecord): Promise<void> {
+  await markShown(r.date);
+  openPastDay(r.date, 'Your last day');
+}
+
+async function shareText(text: string): Promise<void> {
+  try {
+    if (navigator.share) {
+      await navigator.share({ text });
+      return;
+    }
+  } catch (e) {
+    if ((e as DOMException).name === 'AbortError') return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('Summary copied');
+  } catch {
+    toast('Could not copy. Take a screenshot instead.');
+  }
+}
+
+export function handleDayAction(a: string, el: HTMLElement): boolean {
+  const date = el.dataset['date'] ?? '';
+  switch (a) {
+    case 'day-finish': {
+      const r = { ...today(), finished: true };
+      void saveDay(r).then(() => {
+        toast('Day saved');
+        openPastDay(r.date, 'Day done');
+      });
+      return true;
+    }
+    case 'day-open':
+      openPastDay(date);
+      return true;
+    case 'day-share': {
+      const r = date === today().date ? today() : allDays().find((d) => d.date === date);
+      if (r) void shareText(summaryText(r));
+      return true;
+    }
+    default:
+      return false;
+  }
 }

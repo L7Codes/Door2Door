@@ -11,7 +11,14 @@ const snap: Snapshot = {
 };
 
 describe('backup', () => {
-  it('round-trips', () => expect(parseBackup(makeBackup(snap))).toEqual(snap));
+  it('round-trips', () => {
+    const day = { date: '2026-10-09', doors: 5, noanswer: 2, answered: 3, no: 1, follow: 1, appt: 1, sale: 0, stages: 0, roads: 1, first: 1, last: 2, finished: true };
+    const full = { ...snap, houses: snap.houses.map((h) => ({ ...h, hist: 'empty:2026-10-09' })), days: [day] };
+    expect(parseBackup(makeBackup(full))).toEqual(full);
+    const old = parseBackup(makeBackup(snap));
+    expect(old?.houses.map((h) => h.id)).toEqual(snap.houses.map((h) => h.id));
+    expect(old?.days).toEqual([]);
+  });
   it('rejects other files', () => {
     expect(parseBackup('nonsense')).toBeNull();
     expect(parseBackup('{"app":"other"}')).toBeNull();

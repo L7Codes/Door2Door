@@ -85,3 +85,40 @@ describe('empty house reminders', () => {
     expect(dueEmpty(hs, now)).toHaveLength(2);
   });
 });
+
+import { summarise, rollOver, today } from '../src/day';
+import { addHist } from '../src/logic';
+import { store } from '../src/store';
+describe('daily summary', () => {
+  const mk = (id: string, status: string, ts: number, roadId = 'r1') => ({ id, roadId, num: id, lat: 0, lng: 0, status, name: '', phone: '', note: '', appt: '', ts }) as never;
+  it('counts a local day from midnight to midnight', () => {
+    const d = new Date(2026, 9, 9, 10, 0).getTime();
+    const date = '2026-10-09';
+    const hs = [
+      mk('1', 'noanswer', d), mk('2', 'noanswer', d + 1000), mk('3', 'no', d + 2000), mk('4', 'appt', d + 3000),
+      mk('5', 'sale', d + 4000), mk('6', 'empty', d + 5000, 'r2'), mk('7', 'none', d + 6000),
+      mk('8', 'noanswer', new Date(2026, 9, 8, 23, 59).getTime()), mk('9', 'noanswer', new Date(2026, 9, 10, 0, 0, 1).getTime())
+    ];
+    const r = summarise(hs, date);
+    expect(r).toMatchObject({ doors: 6, noanswer: 2, answered: 3, no: 1, appt: 1, sale: 1, stages: 1, roads: 2 });
+  });
+  it('keeps a trail of stage changes', () => {
+    const t = new Date(2026, 9, 9, 12).getTime();
+    let h = addHist('', 'empty', t);
+    h = addHist(h, 'empty', t);
+    h = addHist(h, 'reserved', t + 30 * 86400000);
+    expect(h.split('|')).toHaveLength(2);
+  });
+  it('freezes a past day on roll-over and only shows it once', async () => {
+    const now = new Date(2026, 9, 10, 8, 0).getTime();
+    store.houses = [mk('1', 'noanswer', new Date(2026, 9, 9, 15).getTime()), mk('2', 'sale', new Date(2026, 9, 9, 16).getTime())];
+    const shown = await rollOver(now);
+    expect(shown?.date).toBe('2026-10-09');
+    expect(shown?.doors).toBe(2);
+    expect((store.meta['days'] as Record<string, unknown>)['2026-10-09']).toBeTruthy();
+    expect(today(now).doors).toBe(0);
+    await store.setMeta('dayShown', '2026-10-09');
+    expect(await rollOver(now)).toBeNull();
+    store.houses = [];
+  });
+});

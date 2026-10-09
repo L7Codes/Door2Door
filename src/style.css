@@ -15,7 +15,9 @@
   --c-follow: #7f49c4;
   --c-appt: #2674d6;
   --c-sale: #1b9a58;
-  --c-empty: #0e9aa7;
+  --c-empty: #6bc3cc;
+  --c-reserved: #0e9aa7;
+  --c-movingin: #0a5f7a;
   --font-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-num: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
   color-scheme: light;
@@ -48,11 +50,14 @@ button { cursor: pointer; touch-action: manipulation; }
 .s-follow { --c: var(--c-follow); --on: #fff; }
 .s-appt { --c: var(--c-appt); --on: #fff; }
 .s-sale { --c: var(--c-sale); --on: #fff; }
-.s-empty { --c: var(--c-empty); --on: #fff; }
+.s-empty { --c: var(--c-empty); --on: #04262b; }
+.s-reserved { --c: var(--c-reserved); --on: #fff; }
+.s-movingin { --c: var(--c-movingin); --on: #fff; }
 
 /* Today strip */
 #top { padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
-#tally { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+#tally { display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 8px; cursor: pointer; align-items: center; }
+#tally i { font: 700 26px/1 var(--font-num); color: var(--mute); font-style: normal; padding-left: 4px; }
 #tally div { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 #tally b { font: 700 28px/1 var(--font-num); font-variant-numeric: tabular-nums; }
 #tally span { font-size: 13px; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -75,7 +80,7 @@ button { cursor: pointer; touch-action: manipulation; }
 .pin.long { font-size: 12px; }
 .pin.s-appt { border-radius: 11px; }
 .pin.s-sale { border-radius: 5px; }
-.pin.s-empty { border-style: dashed; }
+.pin.s-empty, .pin.s-reserved, .pin.s-movingin { border-style: dashed; }
 
 /* Notice + toast */
 #notice { position: absolute; top: 12px; left: 12px; right: 72px; z-index: 600; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
@@ -139,3 +144,23 @@ textarea { resize: vertical; }
 .road > .btn { margin-top: 8px; }
 .empty { text-align: center; padding: 56px 24px; color: var(--mute); }
 .empty h2 { font: 700 28px var(--font-num); color: var(--ink); margin: 0 0 6px; }
+
+/* Empty-house stages */
+.stack { display: grid; gap: 10px; margin: 6px 0 10px; }
+.btn.stage { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.btn.stage b { font: 700 20px/1.1 var(--font-num); letter-spacing: 0.01em; }
+.btn.stage span { font-size: 14px; opacity: 0.9; }
+.hist { color: var(--mute); font-size: 14px; margin: -6px 0 8px; }
+
+/* Your day */
+.dbig { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 2px; }
+.dbig b { font: 700 64px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.dbig span { font-size: 18px; color: var(--ink2); }
+.nudge { margin: 0 0 8px; color: var(--ink2); }
+.dgrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 8px 0; }
+.dgrid.four { grid-template-columns: repeat(2, 1fr); }
+.drow { display: flex; align-items: baseline; gap: 8px; padding: 10px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); border-left: 6px solid var(--c, var(--c-sale)); }
+.drow b { font: 700 30px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.drow span { font-size: 14px; color: var(--ink2); }
+.dline { color: var(--ink2); font-size: 15px; margin: 6px 0; }
+.pastdays { display: grid; gap: 6px; margin-bottom: 8px; }

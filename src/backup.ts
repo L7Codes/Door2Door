@@ -1,7 +1,7 @@
-import type { House, Road, Snapshot, Status } from './types';
+import type { DayRecord, House, Road, Snapshot, Status } from './types';
 import { STATUS_LABEL } from './types';
 
-const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty']);
+const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin']);
 
 export function makeBackup(s: Snapshot, now = Date.now()): string {
   return JSON.stringify({ app: 'door2door', version: 1, exportedAt: new Date(now).toISOString(), ...s });
@@ -45,7 +45,8 @@ export function parseBackup(text: string): Snapshot | null {
       phone: str(h['phone']),
       note: str(h['note']),
       appt: str(h['appt']),
-      ts: num(h['ts']) ?? 0
+      ts: num(h['ts']) ?? 0,
+      hist: str(h['hist'])
     });
   }
   const c = o['cursor'] as Record<string, unknown> | null | undefined;
@@ -58,7 +59,20 @@ export function parseBackup(text: string): Snapshot | null {
           nums: Array.isArray(c['nums']) ? (c['nums'] as unknown[]).map(str) : []
         }
       : null;
-  return { houses, roads, cursor };
+  const days: DayRecord[] = [];
+  if (Array.isArray(o['days'])) {
+    for (const d of o['days'] as Record<string, unknown>[]) {
+      const date = str(d?.['date']);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+      const n = (k: string): number => num(d[k]) ?? 0;
+      days.push({
+        date, doors: n('doors'), noanswer: n('noanswer'), answered: n('answered'), no: n('no'), follow: n('follow'),
+        appt: n('appt'), sale: n('sale'), stages: n('stages'), roads: n('roads'), first: n('first'), last: n('last'),
+        finished: d['finished'] === true
+      });
+    }
+  }
+  return { houses, roads, cursor, days };
 }
 
 /** Spreadsheet formulas can hide in text fields; a leading quote keeps them as plain text. */
@@ -69,10 +83,10 @@ function safeCell(v: unknown): string {
 }
 
 export function toCsv(s: Snapshot): string {
-  const head = ['Road', 'Area', 'Number', 'Status', 'Name', 'Phone', 'Note', 'Appointment', 'Lat', 'Lng', 'When'];
+  const head = ['Road', 'Area', 'Number', 'Status', 'Name', 'Phone', 'Note', 'Appointment / check back', 'History', 'Lat', 'Lng', 'When'];
   const rows = s.houses.map((h) => {
     const r = s.roads.find((x) => x.id === h.roadId);
-    return [r?.name ?? '', r?.area ?? '', h.num, STATUS_LABEL[h.status], h.name, h.phone, h.note, h.appt, h.lat, h.lng, new Date(h.ts).toISOString()];
+    return [r?.name ?? '', r?.area ?? '', h.num, STATUS_LABEL[h.status], h.name, h.phone, h.note, h.appt, h.hist ?? '', h.lat, h.lng, new Date(h.ts).toISOString()];
   });
   return [head, ...rows].map((row) => row.map(safeCell).join(',')).join('\n');
 }

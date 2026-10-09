@@ -1,3 +1,4 @@
+import { isStage } from './types';
 import type { Cursor, House, Road, Snapshot } from './types';
 
 const R = 6371000;
@@ -95,7 +96,7 @@ export function tally(houses: House[], now: number): Tally {
   for (const h of houses) {
     if (h.ts < from || h.status === 'none') continue;
     t.doors++;
-    if (h.status !== 'noanswer' && h.status !== 'empty') t.answered++;
+    if (h.status !== 'noanswer' && !isStage(h.status)) t.answered++;
     if (h.status === 'appt') t.booked++;
     if (h.status === 'sale') t.sales++;
   }
@@ -116,7 +117,12 @@ export function mergeSnapshots(current: Snapshot, incoming: Snapshot): Snapshot 
     const have = houses.get(h.id);
     if (!have || h.ts > have.ts) houses.set(h.id, h);
   }
-  return { houses: [...houses.values()], roads: [...roads.values()], cursor: current.cursor };
+  const days = new Map((current.days ?? []).map((d) => [d.date, d]));
+  for (const d of incoming.days ?? []) {
+    const have = days.get(d.date);
+    if (!have || d.doors > have.doors) days.set(d.date, d);
+  }
+  return { houses: [...houses.values()], roads: [...roads.values()], cursor: current.cursor, days: [...days.values()] };
 }
 
 /** 'YYYY-MM-DD' for a date a number of days from now, in local time. */
@@ -128,11 +134,19 @@ export function inDays(days: number, now = Date.now()): string {
 /** Empty houses whose check-back date has arrived. */
 export function dueEmpty(houses: House[], now = Date.now()): House[] {
   const today = inDays(0, now);
-  return houses.filter((h) => h.status === 'empty' && h.appt && h.appt.slice(0, 10) <= today);
+  return houses.filter((h) => isStage(h.status) && h.appt && h.appt.slice(0, 10) <= today);
 }
 
 /** 14/10 style date for display. */
 export function shortDate(iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   return m ? `${m[3]}/${m[2]}` : iso;
+}
+
+/** Append a stage change to a house's trail (one entry per status per day). */
+export function addHist(hist: string | undefined, status: string, now = Date.now()): string {
+  const entry = `${status}:${inDays(0, now)}`;
+  const parts = (hist ?? '').split('|').filter(Boolean);
+  if (parts[parts.length - 1] === entry) return hist ?? '';
+  return parts.concat(entry).slice(-12).join('|');
 }

@@ -1,10 +1,10 @@
 import { $, esc } from './dom';
 import { freshPosition, lookup, type Fix } from './geo';
-import { cursorFor, distance, guessNext, inDays, matchRoad, nearbyRoads, normaliseRoad, uid } from './logic';
+import { addHist, cursorFor, distance, guessNext, inDays, shortDate, matchRoad, nearbyRoads, normaliseRoad, uid } from './logic';
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Lookup, Road, Status } from './types';
-import { STATUS_LABEL } from './types';
+import { isStage, STAGE_DAYS, STATUS_LABEL } from './types';
 
 interface Flow {
   lat: number;
@@ -166,17 +166,22 @@ function stepTypeNum(): void {
 function stepOutcome(): void {
   const f = flow!;
   const r = store.road(f.roadId);
-  sheet.swap(`<h2><span class="plate">${esc(f.num || '?')}</span> ${esc(r?.name ?? '')}</h2><p>What happened?</p>
+  const was = f.roadId && f.num !== '' ? store.houses.find((h) => h.roadId === f.roadId && h.num === f.num) : undefined;
+  const wasNote = was && isStage(was.status) ? `Last time: ${STATUS_LABEL[was.status]}${was.appt ? ', check back ' + shortDate(was.appt) : ''}. ` : '';
+  sheet.swap(`<h2><span class="plate">${esc(f.num || '?')}</span> ${esc(r?.name ?? '')}</h2><p>${esc(wasNote)}What happened?</p>
     <div class="row"><button class="btn big s-noanswer" data-a="save" data-s="noanswer">No answer</button><button class="btn big" data-a="answered">Answered</button></div>
     <div class="row"><button class="btn big s-empty" data-a="empty">Empty house / not moved in</button></div>
     <div class="row"><button class="btn quiet" data-a="back-id">Change address</button></div>`);
 }
 
 function stepEmpty(): void {
-  const opts: [string, number][] = [['2 weeks', 14], ['1 month', 30], ['2 months', 60]];
-  sheet.swap(`<h2>Empty house</h2><p>When should it remind you to check back?</p>
-    <div class="row">${opts.map(([l, d]) => `<button class="btn big s-empty" data-a="empty-save" data-d="${d}">${l}</button>`).join('')}</div>
-    <div class="row"><button class="btn" data-a="empty-save" data-d="0">No reminder</button><button class="btn quiet" data-a="outcome">Back</button></div>`);
+  const row = (st: Status, title: string, hint: string): string =>
+    `<button class="btn big s-${st} stage" data-a="empty-save" data-s="${st}"><b>${title}</b><span>${hint}</span></button>`;
+  sheet.swap(`<h2>Empty house</h2><p>What did you see? It sets when to remind you.</p>
+    <div class="stack">${row('empty', 'Not sold', 'For sale, show home. Check back in 6 weeks')}
+    ${row('reserved', 'Sold, not in yet', 'Sold sign, or you were told. 3 weeks')}
+    ${row('movingin', 'Moving in', 'Furniture, van, curtains, car. 1 week')}</div>
+    <div class="row"><button class="btn quiet" data-a="outcome">Back</button></div>`);
 }
 
 function stepAnswered(): void {
@@ -242,8 +247,9 @@ async function commit(status: Status, extra: { note?: string; appt?: string } = 
     name: f.name || dup?.name || '',
     phone: f.phone || dup?.phone || '',
     note: extra.note ?? (f.note || dup?.note || ''),
-    appt: extra.appt ?? dup?.appt ?? '',
-    ts: Date.now()
+    appt: extra.appt ?? (dup && isStage(dup.status) ? '' : dup?.appt ?? ''),
+    ts: Date.now(),
+    hist: addHist(dup?.hist, status)
   };
   await store.putHouse(house);
   if (f.roadId) await store.setCursor(cursorFor(store.cursor, f.roadId, f.num, f.lat, f.lng));
@@ -333,8 +339,8 @@ export function handleFlowAction(a: string, el: HTMLElement): boolean {
     case 'outcome': stepOutcome(); return true;
     case 'empty': stepEmpty(); return true;
     case 'empty-save': {
-      const d = parseInt(el.dataset['d'] ?? '0', 10);
-      void commit('empty', { appt: d ? inDays(d) : '' });
+      const st = (el.dataset['s'] ?? 'empty') as Status;
+      void commit(st, { appt: inDays(STAGE_DAYS[st] ?? 0) });
       return true;
     }
     case 'answered': stepAnswered(); return true;

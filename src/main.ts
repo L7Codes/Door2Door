@@ -11,7 +11,8 @@ import { dueEmpty, tally } from './logic';
 import { DoorMap } from './map';
 import { store } from './store';
 import { initSheet, notice, sheet, toast } from './ui';
-import { applyTheme, handleViewAction, initViews, openHouse, openRename, openSettings, renderRoads } from './views';
+import { applyTheme, handleViewAction, initViews, openDay, openHouse, openRename, openSettings, renderRoads, showYesterday } from './views';
+import { rollOver } from './day';
 
 let fix: Fix | null = null;
 let moving = false;
@@ -22,7 +23,7 @@ let doorMap: DoorMap;
 function renderTally(): void {
   const t = tally(store.houses, Date.now());
   const cell = (n: number, label: string): string => `<div><b>${n}</b><span>${label}</span></div>`;
-  $('tally').innerHTML = cell(t.doors, 'doors') + cell(t.answered, 'answered') + cell(t.booked, 'booked') + cell(t.sales, 'sales');
+  $('tally').innerHTML = cell(t.doors, 'doors') + cell(t.answered, 'answered') + cell(t.booked, 'booked') + cell(t.sales, 'sales') + '<i aria-hidden="true">›</i>';
 }
 
 function renderNotice(): void {
@@ -109,6 +110,26 @@ async function boot(): Promise<void> {
     if (handleFlowAction(a, el)) return;
     handleViewAction(a, el);
   });
+
+  const tallyEl = $('tally');
+  tallyEl.setAttribute('role', 'button');
+  tallyEl.tabIndex = 0;
+  tallyEl.onclick = () => {
+    if (!sheet.isOpen()) openDay();
+  };
+  tallyEl.onkeydown = (e) => {
+    if (e.key === 'Enter' && !sheet.isOpen()) openDay();
+  };
+  const newDay = async (): Promise<void> => {
+    const r = await rollOver();
+    if (r && !sheet.isOpen()) await showYesterday(r);
+    renderTally();
+  };
+  void newDay();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') void newDay();
+  });
+  setInterval(() => void newDay(), 5 * 60000);
 
   $('btn-layers').onclick = () => $('btn-layers').setAttribute('aria-pressed', String(doorMap.toggleBase()));
   $('btn-locate').onclick = () => fix && doorMap.centreOn(fix.lat, fix.lng);
