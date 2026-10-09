@@ -39,7 +39,7 @@ describe('knock flow', () => {
     type('num', '2');
     click('road-done');
     click('save', { s: 'noanswer' });
-    await sleep(20);
+    await sleep(60);
     expect(store.houses).toHaveLength(1);
     expect(store.houses[0].num).toBe('2');
     expect(knockHint()).toBe('Kennington Avenue, next 4');
@@ -55,12 +55,43 @@ describe('knock flow', () => {
     type('f-name', 'Sam');
     type('f-phone', '0712');
     click('save-form', { s: 'follow' });
-    await sleep(20);
+    await sleep(60);
     expect(store.houses).toHaveLength(2);
     const h = store.houses.find((x) => x.num === '4')!;
     expect(h.status).toBe('follow');
     expect(h.name).toBe('Sam');
     expect(store.cursor?.nums).toEqual(['2', '4']);
+  });
+
+  it('does a fresh check when you have moved on: asks for the number instead of guessing', async () => {
+    nominatim = { road: 'Kennington Avenue' };
+    await knock();
+    type('num', '30');
+    click('road-done');
+    click('save', { s: 'noanswer' });
+    await sleep(40);
+    sheet.close();
+    fix = { ...fix, lat: fix.lat + 0.00030 }; // ~33m away
+    await knock();
+    expect(text()).not.toContain('Still on');
+    expect(text()).toContain('House number');
+    expect((document.getElementById('num') as HTMLInputElement).value).toBe('');
+    expect((document.getElementById('road') as HTMLInputElement).value).toBe('Kennington Avenue');
+  });
+
+  it('does not assume the same road when nothing is detected and you are far away', async () => {
+    nominatim = { road: 'Kennington Avenue' };
+    await knock();
+    type('num', '30');
+    click('road-done');
+    click('save', { s: 'noanswer' });
+    await sleep(40);
+    sheet.close();
+    nominatim = {};
+    fix = { ...fix, lat: fix.lat + 0.0006 };
+    await knock();
+    expect(text()).not.toContain('Still on');
+    expect((document.getElementById('road') as HTMLInputElement).value).toBe('');
   });
 
   it('confirms a recognised address in one tap', async () => {
@@ -69,7 +100,7 @@ describe('knock flow', () => {
     expect(text()).toContain('Are you at 14 Oak Road?');
     click('confirm-yes');
     click('save', { s: 'noanswer' });
-    await sleep(20);
+    await sleep(60);
     expect(store.houses[0].num).toBe('14');
     expect(store.road(store.houses[0].roadId)?.name).toBe('Oak Road');
   });
@@ -80,7 +111,7 @@ describe('knock flow', () => {
     type('num', '2');
     click('road-done');
     click('save', { s: 'noanswer' });
-    await sleep(20);
+    await sleep(60);
     sheet.close();
     nominatim = { road: 'Linden Road' };
     await knock();
@@ -92,14 +123,14 @@ describe('knock flow', () => {
     await knock();
     click('confirm-yes');
     click('save', { s: 'noanswer' });
-    await sleep(20);
+    await sleep(60);
     sheet.close();
     await knock();
     click('confirm-yes');
     click('answered');
     click('not-int');
     click('reason', { r: 'No money' });
-    await sleep(20);
+    await sleep(60);
     expect(store.houses).toHaveLength(1);
     expect(store.houses[0].status).toBe('no');
     expect(store.houses[0].note).toBe('No money');
@@ -110,10 +141,10 @@ describe('knock flow', () => {
     await knock();
     click('confirm-yes');
     click('save', { s: 'noanswer' });
-    await sleep(20);
+    await sleep(60);
     expect(store.houses).toHaveLength(1);
     (document.querySelector('#toast button') as HTMLButtonElement).click();
-    await sleep(20);
+    await sleep(60);
     expect(store.houses).toHaveLength(0);
     expect(store.cursor).toBeNull();
   });

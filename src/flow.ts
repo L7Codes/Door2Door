@@ -30,6 +30,8 @@ interface Deps {
 let deps: Deps;
 let flow: Flow | null = null;
 const SAME_ROAD_M = 150;
+/** Only guess the next number when you are standing right next to the last door you knocked. */
+const NEXT_DOOR_M = 10;
 
 export function initFlow(d: Deps): void {
   deps = d;
@@ -44,8 +46,10 @@ export function knockHint(): string {
   const fix = deps.getFix();
   const c = store.cursor;
   const road = c ? store.road(c.roadId) : null;
-  if (fix && c && road && distance(c.lat, c.lng, fix.lat, fix.lng) < SAME_ROAD_M) {
-    return `${road.name}, next ${guessNext(c.nums)}`;
+  if (fix && c && road) {
+    const d = distance(c.lat, c.lng, fix.lat, fix.lng);
+    if (d < NEXT_DOOR_M) return `${road.name}, next ${guessNext(c.nums)}`;
+    if (d < SAME_ROAD_M) return road.name;
   }
   return '';
 }
@@ -92,15 +96,18 @@ function decideRoad(): void {
   const f = flow!;
   const c = store.cursor;
   const cur = c ? store.road(c.roadId) : null;
-  const sameName = !f.detected || (cur && matchNames(cur.name, f.detected));
-  if (c && cur && distance(c.lat, c.lng, f.lat, f.lng) < SAME_ROAD_M && sameName) {
+  const d = c ? distance(c.lat, c.lng, f.lat, f.lng) : Infinity;
+  // Right next to the last knock on the same road: offer the guessed number.
+  if (c && cur && d < NEXT_DOOR_M && (!f.detected || matchNames(cur.name, f.detected))) {
     f.roadId = cur.id;
     f.num = String(guessNext(c.nums));
     stepSame();
-  } else {
-    if (f.detected) f.roadName = f.detected;
-    stepNewRoad();
+    return;
   }
+  // Anywhere else: fresh check, ask for the number (no guessing).
+  if (f.detected) f.roadName = f.detected;
+  else if (cur && d < 60) f.roadName = cur.name;
+  stepNewRoad();
 }
 
 const matchNames = (a: string, b: string): boolean => normaliseRoad(a) === normaliseRoad(b);
