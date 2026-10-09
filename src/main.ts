@@ -10,10 +10,11 @@ import { handleFlowAction, initFlow, knock, knockHint } from './flow';
 import { tally } from './logic';
 import { DoorMap } from './map';
 import { store } from './store';
-import { initSheet, notice, sheet } from './ui';
+import { initSheet, notice, sheet, toast } from './ui';
 import { applyTheme, handleViewAction, initViews, openHouse, openRename, openSettings, renderRoads } from './views';
 
 let fix: Fix | null = null;
+let moving = false;
 let gps: GpsState = 'waiting';
 let view: 'map' | 'roads' = 'map';
 let doorMap: DoorMap;
@@ -58,7 +59,7 @@ function setView(v: 'map' | 'roads'): void {
 async function boot(): Promise<void> {
   await store.load();
   applyTheme();
-  doorMap = new DoorMap($('map'), openHouse);
+  doorMap = new DoorMap($('map'), (id) => (moving ? undefined : openHouse(id)));
   const last = store.houses[store.houses.length - 1];
   if (last) doorMap.centreOn(last.lat, last.lng, 18);
 
@@ -71,6 +72,29 @@ async function boot(): Promise<void> {
   initFlow({ getFix: () => fix, getCentre: () => doorMap.centre(), changed });
   initViews({
     changed,
+    movePin: (id) => {
+      const h = store.house(id);
+      if (!h) return;
+      sheet.close();
+      moving = true;
+      doorMap.centreOn(h.lat, h.lng, 20);
+      const done = (): void => {
+        moving = false;
+        notice(null);
+        doorMap.map.off('click', onTap);
+      };
+      const onTap = (e: { latlng: { lat: number; lng: number } }): void => {
+        const cur = store.house(id);
+        done();
+        if (!cur) return;
+        void store.putHouse({ ...cur, lat: e.latlng.lat, lng: e.latlng.lng, ts: Date.now() }).then(() => {
+          changed();
+          toast(`${cur.num || 'Pin'} moved`);
+        });
+      };
+      doorMap.map.on('click', onTap);
+      notice(`Tap the map where ${h.num || 'this door'} is. Tap here to cancel.`, done);
+    },
     goto: (h) => {
       setView('map');
       doorMap.centreOn(h.lat, h.lng);

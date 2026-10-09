@@ -4,6 +4,8 @@ export interface Fix {
   lat: number;
   lng: number;
   acc: number;
+  /** When the phone took this reading (ms). Missing means treat as fresh. */
+  ts?: number;
 }
 
 type Raw = { address?: Record<string, string> } | null | undefined;
@@ -55,7 +57,7 @@ function begin(): void {
   watchId = navigator.geolocation.watchPosition(
     (p) => {
       onState('ok');
-      onFix({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy });
+      onFix({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp });
     },
     (e) => {
       // Code 1 = permission refused. On an iPhone Home Screen app this lasts until the app is closed and reopened.
@@ -74,4 +76,16 @@ export function watchGps(onFix: (f: Fix) => void, onState: (s: GpsState) => void
 /** Ask again. Call from a tap or when the app comes back to the front. */
 export function restartGps(): void {
   begin();
+}
+
+/** Ask the phone for a brand new reading right now (never a cached one). Null if it cannot in time. */
+export function freshPosition(ms = 6000): Promise<Fix | null> {
+  return new Promise((resolve) => {
+    if (!('geolocation' in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy, ts: p.timestamp }),
+      () => resolve(null),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: ms }
+    );
+  });
 }

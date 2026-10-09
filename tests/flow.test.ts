@@ -149,3 +149,24 @@ describe('knock flow', () => {
     expect(store.cursor).toBeNull();
   });
 });
+
+describe('stale GPS', () => {
+  it('asks the phone for a fresh reading when the last one is old, and pins at the new spot', async () => {
+    nominatim = { road: 'Foxglove Drive' };
+    const g = {
+      getCurrentPosition: (ok: (p: unknown) => void) =>
+        ok({ coords: { latitude: fix.lat + 0.0003, longitude: fix.lng, accuracy: 5 }, timestamp: Date.now() })
+    };
+    Object.defineProperty(navigator, 'geolocation', { value: g, configurable: true });
+    const old = { ...fix, ts: Date.now() - 60000 };
+    const before = old.lat;
+    fix = old;
+    await knock();
+    await sleep(60);
+    type('num', '7');
+    click('road-done');
+    click('save', { s: 'noanswer' });
+    await sleep(60);
+    expect(store.houses[0].lat).toBeGreaterThan(before + 0.0002);
+  });
+});

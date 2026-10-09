@@ -1,5 +1,5 @@
 import { $, esc } from './dom';
-import { lookup, type Fix } from './geo';
+import { freshPosition, lookup, type Fix } from './geo';
 import { cursorFor, distance, guessNext, matchRoad, nearbyRoads, normaliseRoad, uid } from './logic';
 import { store } from './store';
 import { sheet, toast } from './ui';
@@ -19,6 +19,7 @@ interface Flow {
   name: string;
   phone: string;
   note: string;
+  stale: boolean;
 }
 
 interface Deps {
@@ -56,7 +57,7 @@ export function knockHint(): string {
 
 export async function knock(): Promise<void> {
   if (flow) return;
-  const fix = deps.getFix();
+  let fix = deps.getFix();
   if (!fix) {
     sheet.show(
       `<h2>Waiting for GPS</h2><p>Stand still for a few seconds. If it never arrives, allow location for Door2Door in Settings.</p>
@@ -66,8 +67,19 @@ export async function knock(): Promise<void> {
     flow = blank(deps.getCentre().lat, deps.getCentre().lng, 0);
     return;
   }
+  // Never trust an old reading: if the last one is more than 3 seconds old, ask the phone for a new one.
+  let stale = false;
+  sheet.show('<h2>Finding your position…</h2><p>Getting a fresh GPS reading.</p>', () => (flow = null));
   flow = blank(fix.lat, fix.lng, fix.acc);
-  sheet.show('<h2>Checking address…</h2><p>Looking for a house at your position.</p>', () => (flow = null));
+  if (fix.ts !== undefined && Date.now() - fix.ts > 3000) {
+    const fresh = await freshPosition();
+    if (!flow) return;
+    if (fresh) fix = fresh;
+    else stale = Date.now() - fix.ts > 20000;
+  }
+  flow = blank(fix.lat, fix.lng, fix.acc);
+  flow.stale = stale;
+  sheet.swap('<h2>Checking address…</h2><p>Looking for a house at your position.</p>');
   const l = await lookup(fix.lat, fix.lng);
   if (!flow) return;
   flow.detected = l?.road ?? '';
@@ -79,11 +91,13 @@ export async function knock(): Promise<void> {
 }
 
 function blank(lat: number, lng: number, acc: number): Flow {
-  return { lat, lng, acc, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '', name: '', phone: '', note: '' };
+  return { lat, lng, acc, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '', name: '', phone: '', note: '', stale: false };
 }
 
 const roughNote = (f: Flow): string =>
-  f.acc > 40 ? `<p class="warn">GPS is rough (±${Math.round(f.acc)}m). Check the number matches the door.</p>` : '';
+  f.stale
+    ? `<p class="warn">GPS has not updated for a while, so this pin may land in the wrong place. You can move it later from the house.</p>`
+    : f.acc > 40 ? `<p class="warn">GPS is rough (±${Math.round(f.acc)}m). Check the number matches the door.</p>` : '';
 
 function stepConfirm(): void {
   const f = flow!;

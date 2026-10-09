@@ -9,6 +9,7 @@ import { STATUS_LABEL, STATUS_ORDER } from './types';
 interface Hooks {
   changed: () => void;
   goto: (h: House) => void;
+  movePin: (id: string) => void;
 }
 let hooks: Hooks;
 let pending: ReturnType<typeof parseBackup> = null;
@@ -34,7 +35,7 @@ export function openHouse(id: string): void {
     <label for="e-note">Note</label><textarea id="e-note" rows="2">${esc(h.note)}</textarea>
     <label for="e-num">House number</label><input id="e-num" autocomplete="off" autocapitalize="characters" value="${esc(h.num)}">
     <div class="row"><button class="btn pri big" data-a="save-edit" data-id="${id}">Save</button><button class="btn big" data-a="close">Close</button></div>
-    <div class="row"><button class="btn quiet" data-a="delete" data-id="${id}">Delete this house</button></div>`);
+    <div class="row"><button class="btn" data-a="move-pin" data-id="${id}">Move pin on map</button><button class="btn quiet" data-a="delete" data-id="${id}">Delete this house</button></div>`);
 }
 
 export function openRename(id: string): void {
@@ -82,6 +83,9 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
         el.dataset['armed'] = '1';
         el.textContent = 'Tap again to delete';
       }
+      return true;
+    case 'move-pin':
+      hooks.movePin(id);
       return true;
     case 'rename-road':
       openRename(id);
