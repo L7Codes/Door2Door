@@ -1,11 +1,11 @@
 import { $, esc } from './dom';
 import { makeBackup, parseBackup, saveFile, toCsv } from './backup';
 import { addHist, inDays, mergeSnapshots, shortDate } from './logic';
-import { allDays, dateLabel, hhmm, markShown, pct, saveDay, summaryText, today } from './day';
+import { allDays, dateLabel, hhmm, homesOf, markShown, pct, saveDay, summaryText, today } from './day';
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Road, Status } from './types';
-import { BIZ_TYPES, hasDate, REMIND_DAYS, STATUS_LABEL, STATUS_ORDER, statusLabel } from './types';
+import { BIZ_TYPES, hasDate, REMIND_DAYS, STATUS_LABEL, statusesFor, statusLabel } from './types';
 import type { DayRecord } from './types';
 
 interface Hooks {
@@ -20,9 +20,9 @@ export function initViews(h: Hooks): void {
   hooks = h;
 }
 
-const statusButtons = (id: string): string =>
-  STATUS_ORDER.filter((s) => s !== 'none')
-    .map((s) => `<button class="btn sm s-${s}" data-a="set-status" data-id="${id}" data-s="${s}">${STATUS_LABEL[s]}</button>`)
+const statusButtons = (id: string, kind?: string): string =>
+  statusesFor(kind)
+    .map((s) => `<button class="btn sm s-${s}" data-a="set-status" data-id="${id}" data-s="${s}">${statusLabel({ status: s, kind })}</button>`)
     .join('');
 
 function histLine(h: House): string {
@@ -45,7 +45,7 @@ export function openHouse(id: string): void {
   sheet.show(`<h2><span class="dot s-${h.status}"></span>${biz ? esc(h.bname || 'Business') : `<span class="plate">${esc(h.num || '?')}</span>`} ${esc(biz ? (h.num ? h.num + ' ' : '') + (r?.name ?? '') : (r?.name ?? 'Unnamed road'))}</h2>
     <p>${esc(statusLabel(h))}${hasDate(h.status) ? (h.appt ? ' · check back ' + esc(shortDate(h.appt)) : '') : h.appt ? ' · ' + esc(h.appt.replace('T', ' ')) : ''}</p>
     ${histLine(h)}
-    <div class="row tight">${statusButtons(id)}</div>
+    <div class="row tight">${statusButtons(id, h.kind)}</div>
     ${hasDate(h.status) ? `<label for="e-date">Check back on</label><input id="e-date" type="date" value="${esc(h.appt.slice(0, 10))}">` : ''}
     <div class="seg" role="group" aria-label="Home or business"><button data-a="set-kind" data-id="${id}" data-k="home" aria-pressed="${!biz}">Home</button><button data-a="set-kind" data-id="${id}" data-k="biz" aria-pressed="${biz}">Business</button></div>
     ${biz ? `<label for="e-bname">Business name</label><input id="e-bname" autocomplete="off" autocapitalize="words" value="${esc(h.bname ?? '')}">
@@ -254,7 +254,7 @@ export function renderRoads(): void {
       const sorted = [...houses].sort((a, b) => (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0));
       return `<article class="road"><header><h3>${esc(road?.name ?? 'Needs a road')}</h3>
         <p>${esc(road?.area ?? '')} ${road ? '' : 'Pins dropped without a road name.'}</p>
-        <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') + c('reserved') + c('movingin') ? ` · ${c('empty') + c('reserved') + c('movingin')} empty` : ''}</p></header>
+        <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') + c('reserved') + c('movingin') + c('refit') + c('opening') ? ` · ${c('empty') + c('reserved') + c('movingin') + c('refit') + c('opening')} empty or not open` : ''}</p></header>
         ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.kind === 'biz' ? (h.bname || 'Shop') : (h.num || '?'))}</b><span class="what">${esc([hasDate(h.status) && h.appt ? `${statusLabel(h)}, check back ${shortDate(h.appt)}` : statusLabel(h), h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
         ${road ? `<button class="btn sm" data-rename="${road.id}">Rename road</button>` : ''}</article>`;
     })
@@ -265,6 +265,15 @@ export function renderRoads(): void {
 
 const row = (n: number | string, label: string, cls = ''): string => `<div class="drow ${cls}"><b>${n}</b><span>${label}</span></div>`;
 
+function splitLine(r: DayRecord): string {
+  const b = r.biz;
+  if (!b || !b.doors) return '';
+  const h = homesOf(r);
+  const part = (name: string, c: { doors: number; noanswer: number; answered: number; appt: number; sale: number }, none: string, some: string): string =>
+    `<div class="split"><b>${name}</b><span>${c.doors} · ${c.noanswer} ${none} · ${c.answered} ${some} · ${c.appt} booked · ${c.sale} sold</span></div>`;
+  return `<div class="splits">${part('Homes', h, 'no answer', 'answered')}${part('Shops', b, 'manager out', 'spoke to someone')}</div>`;
+}
+
 function dayBody(r: DayRecord): string {
   const withSomeone = r.doors - r.stages;
   const nudge = r.sale ? 'A sale on the board.' : r.appt ? 'Appointments booked. That is the job.' : r.doors >= 100 ? 'Big day on the doors.' : r.doors ? 'Doors knocked is progress.' : '';
@@ -272,7 +281,8 @@ function dayBody(r: DayRecord): string {
     ${nudge ? `<p class="nudge">${nudge}</p>` : ''}
     <div class="dgrid">${row(r.noanswer, 'No answer', 's-noanswer')}${row(r.answered, 'Answered', 'ans')}</div>
     <div class="dgrid four">${row(r.no, 'Not interested', 's-no')}${row(r.follow, 'Follow-up', 's-follow')}${row(r.left ?? 0, 'Left my number', 's-left')}${row(r.appt, 'Appointments', 's-appt')}${row(r.sale, 'Sales', 's-sale')}</div>
-    ${r.stages ? `<p class="dline">${r.stages} empty or new-build house${r.stages === 1 ? '' : 's'} logged to check back on.</p>` : ''}
+    ${splitLine(r)}
+    ${r.stages ? `<p class="dline">${r.stages} empty, renovating or new-build place${r.stages === 1 ? '' : 's'} logged to check back on.</p>` : ''}
     ${r.doors ? `<p class="dline">${pct(r.answered, withSomeone)}% of doors with someone in were answered. ${r.roads} road${r.roads === 1 ? '' : 's'}, ${hhmm(r.first)} to ${hhmm(r.last)}.</p>` : '<p class="dline">No doors yet.</p>'}`;
 }
 

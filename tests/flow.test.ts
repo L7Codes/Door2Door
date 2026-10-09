@@ -234,3 +234,23 @@ describe('businesses', () => {
     expect(store.meta['lastKind']).toBe('biz');
   });
 });
+
+describe('shops not trading yet', () => {
+  it('saves a shop being renovated with a 4 week reminder and only offers shop stages', async () => {
+    nominatim = { road: 'High Street', house_number: '30' };
+    await knock();
+    click('confirm-yes');
+    click('kind-biz');
+    click('empty');
+    expect(text()).toContain('Being renovated');
+    expect(text()).toContain('New shop coming');
+    expect(text()).not.toContain('Sold, not in yet');
+    click('empty-save', { s: 'refit' });
+    await sleep(60);
+    const h = store.houses[0];
+    expect(h).toMatchObject({ kind: 'biz', status: 'refit' });
+    const days = (new Date(h.appt).getTime() - Date.now()) / 86400000;
+    expect(days).toBeGreaterThan(26);
+    expect(days).toBeLessThan(29);
+  });
+});

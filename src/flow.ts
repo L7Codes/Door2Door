@@ -184,7 +184,7 @@ function stepOutcome(): void {
   sheet.swap(`<h2><span class="plate">${esc(f.num || '?')}</span> ${esc(r?.name ?? '')}</h2><p>${esc(wasNote)}What happened?</p>
     ${seg}${bizForm}
     <div class="row"><button class="btn big s-noanswer" data-a="save" data-s="noanswer">${biz ? 'Manager not in' : 'No answer'}</button><button class="btn big" data-a="answered">${biz ? 'Spoke to someone' : 'Answered'}</button></div>
-    ${biz ? '' : '<div class="row"><button class="btn big s-empty" data-a="empty">Empty house / not moved in</button></div>'}
+    <div class="row"><button class="btn big s-empty" data-a="empty">${biz ? 'Renovating, opening soon or empty' : 'Empty house / not moved in'}</button></div>
     <div class="row"><button class="btn quiet" data-a="back-id">Change address</button></div>`);
 }
 
@@ -195,12 +195,19 @@ function readBiz(): void {
 }
 
 function stepEmpty(): void {
+  const f = flow!;
   const row = (st: Status, title: string, hint: string): string =>
     `<button class="btn big s-${st} stage" data-a="empty-save" data-s="${st}"><b>${title}</b><span>${hint}</span></button>`;
-  sheet.swap(`<h2>Empty house</h2><p>What did you see? It sets when to remind you.</p>
-    <div class="stack">${row('empty', 'Not sold', 'For sale, show home. Check back in 6 weeks')}
-    ${row('reserved', 'Sold, not in yet', 'Sold sign, or you were told. 3 weeks')}
-    ${row('movingin', 'Moving in', 'Furniture, van, curtains, car. 1 week')}</div>
+  const rows =
+    f.kind === 'biz'
+      ? `${row('refit', 'Being renovated', 'Shop fitting out or shut for work. Check back in 4 weeks')}
+         ${row('opening', 'New shop coming', 'Sign up, opening soon. Check back in 2 weeks')}
+         ${row('empty', 'Empty unit / to let', 'Nothing there yet. Check back in 6 weeks')}`
+      : `${row('empty', 'Not sold', 'For sale, show home. Check back in 6 weeks')}
+         ${row('reserved', 'Sold, not in yet', 'Sold sign, or you were told. 3 weeks')}
+         ${row('movingin', 'Moving in', 'Furniture, van, curtains, car. 1 week')}`;
+  sheet.swap(`<h2>${f.kind === 'biz' ? 'Shop not trading yet' : 'Empty house'}</h2><p>What did you see? It sets when to remind you.</p>
+    <div class="stack">${rows}</div>
     <div class="row"><button class="btn quiet" data-a="outcome">Back</button></div>`);
 }
 

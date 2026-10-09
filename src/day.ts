@@ -1,33 +1,42 @@
 import { inDays, startOfDay } from './logic';
 import { store } from './store';
 import { isStage } from './types';
-import type { DayRecord, House } from './types';
+import type { DayCounts, DayRecord, House } from './types';
 
 const dayKey = (ts: number): string => inDays(0, ts);
 
+const blankCounts = (): DayCounts => ({ doors: 0, noanswer: 0, answered: 0, no: 0, follow: 0, left: 0, appt: 0, sale: 0, stages: 0 });
+
+function addTo(c: DayCounts, status: House['status']): void {
+  c.doors++;
+  if (status === 'noanswer') c.noanswer++;
+  else if (isStage(status)) c.stages++;
+  else {
+    c.answered++;
+    if (status === 'no') c.no++;
+    else if (status === 'follow') c.follow++;
+    else if (status === 'appt') c.appt++;
+    else if (status === 'sale') c.sale++;
+    else if (status === 'left') c.left++;
+  }
+}
+
 /** Count what happened on one local day (midnight to midnight) from the houses touched in it. */
 export function summarise(houses: House[], date: string): DayRecord {
-  const rec: DayRecord = { date, doors: 0, noanswer: 0, answered: 0, no: 0, follow: 0, appt: 0, sale: 0, left: 0, stages: 0, roads: 0, first: 0, last: 0, finished: false };
+  const all = blankCounts();
+  const biz = blankCounts();
   const roads = new Set<string>();
+  let first = 0;
+  let last = 0;
   for (const h of houses) {
     if (h.status === 'none' || dayKey(h.ts) !== date) continue;
-    rec.doors++;
+    addTo(all, h.status);
+    if (h.kind === 'biz') addTo(biz, h.status);
     if (h.roadId) roads.add(h.roadId);
-    rec.first = rec.first ? Math.min(rec.first, h.ts) : h.ts;
-    rec.last = Math.max(rec.last, h.ts);
-    if (h.status === 'noanswer') rec.noanswer++;
-    else if (isStage(h.status)) rec.stages++;
-    else {
-      rec.answered++;
-      if (h.status === 'no') rec.no++;
-      else if (h.status === 'follow') rec.follow++;
-      else if (h.status === 'appt') rec.appt++;
-      else if (h.status === 'sale') rec.sale++;
-      else if (h.status === 'left') rec.left = (rec.left ?? 0) + 1;
-    }
+    first = first ? Math.min(first, h.ts) : h.ts;
+    last = Math.max(last, h.ts);
   }
-  rec.roads = roads.size;
-  return rec;
+  return { date, ...all, roads: roads.size, first, last, finished: false, biz };
 }
 
 const days = (): Record<string, DayRecord> => (store.meta['days'] as Record<string, DayRecord> | undefined) ?? {};
@@ -91,9 +100,24 @@ export function summaryText(r: DayRecord): string {
     `${r.noanswer} no answer, ${r.answered} answered (${pct(r.answered, r.doors - r.stages)}% of doors with someone in)`,
     `Of those answered: ${r.no} not interested, ${r.follow} follow-up, ${r.left ?? 0} left my number, ${r.appt} appointments, ${r.sale} sales`
   ];
-  if (r.stages) lines.push(`${r.stages} empty or new-build houses logged to check back on`);
+  const b = r.biz;
+  if (b && b.doors) {
+    const h = homesOf(r);
+    lines.push(`Homes: ${h.doors} doors, ${h.noanswer} no answer, ${h.answered} answered, ${h.appt} appointments, ${h.sale} sales`);
+    lines.push(`Businesses: ${b.doors} visits, ${b.noanswer} manager not in, ${b.answered} spoke to someone, ${b.appt} appointments, ${b.sale} sales`);
+  }
+  if (r.stages) lines.push(`${r.stages} empty, renovating or new places logged to check back on`);
   if (r.doors) lines.push(`${r.roads} road${r.roads === 1 ? '' : 's'}, ${hhmm(r.first)} to ${hhmm(r.last)}`);
   return lines.join('\n');
+}
+
+/** The home part of a day: the totals minus the business counts. */
+export function homesOf(r: DayRecord): DayCounts {
+  const b = r.biz ?? blankCounts();
+  return {
+    doors: r.doors - b.doors, noanswer: r.noanswer - b.noanswer, answered: r.answered - b.answered, no: r.no - b.no,
+    follow: r.follow - b.follow, left: (r.left ?? 0) - b.left, appt: r.appt - b.appt, sale: r.sale - b.sale, stages: r.stages - b.stages
+  };
 }
 
 export { hhmm, pct };

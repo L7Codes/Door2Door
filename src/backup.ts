@@ -1,7 +1,7 @@
-import type { DayRecord, House, Road, Snapshot, Status } from './types';
+import type { DayCounts, DayRecord, House, Road, Snapshot, Status } from './types';
 import { STATUS_LABEL } from './types';
 
-const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'left']);
+const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'left', 'refit', 'opening']);
 
 export function makeBackup(s: Snapshot, now = Date.now()): string {
   return JSON.stringify({ app: 'door2door', version: 1, exportedAt: new Date(now).toISOString(), ...s });
@@ -9,6 +9,11 @@ export function makeBackup(s: Snapshot, now = Date.now()): string {
 
 const str = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
 const num = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+function parseCounts(o: Record<string, unknown>): DayCounts {
+  const n = (k: string): number => num(o[k]) ?? 0;
+  return { doors: n('doors'), noanswer: n('noanswer'), answered: n('answered'), no: n('no'), follow: n('follow'), left: n('left'), appt: n('appt'), sale: n('sale'), stages: n('stages') };
+}
 
 /** Reads a backup file. Returns null if it is not a Door2Door backup. Bad rows are dropped, not trusted. */
 export function parseBackup(text: string): Snapshot | null {
@@ -69,7 +74,8 @@ export function parseBackup(text: string): Snapshot | null {
       days.push({
         date, doors: n('doors'), noanswer: n('noanswer'), answered: n('answered'), no: n('no'), follow: n('follow'),
         appt: n('appt'), sale: n('sale'), left: n('left'), stages: n('stages'), roads: n('roads'), first: n('first'), last: n('last'),
-        finished: d['finished'] === true
+        finished: d['finished'] === true,
+        ...(d['biz'] && typeof d['biz'] === 'object' ? { biz: parseCounts(d['biz'] as Record<string, unknown>) } : {})
       });
     }
   }

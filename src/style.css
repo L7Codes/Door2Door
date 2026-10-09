@@ -19,6 +19,8 @@
   --c-reserved: #0e9aa7;
   --c-movingin: #0a5f7a;
   --c-left: #b794e8;
+  --c-refit: #8c6a3f;
+  --c-opening: #12a594;
   --font-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-num: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
   color-scheme: light;
@@ -53,6 +55,8 @@ button { cursor: pointer; touch-action: manipulation; }
 .s-sale { --c: var(--c-sale); --on: #fff; }
 .s-empty { --c: var(--c-empty); --on: #04262b; }
 .s-reserved { --c: var(--c-reserved); --on: #fff; }
+.s-refit { --c: var(--c-refit); --on: #fff; }
+.s-opening { --c: var(--c-opening); --on: #04211d; }
 .s-left { --c: var(--c-left); --on: #1c0f33; }
 .s-movingin { --c: var(--c-movingin); --on: #fff; }
 
@@ -82,7 +86,7 @@ button { cursor: pointer; touch-action: manipulation; }
 .pin.long { font-size: 12px; }
 .pin.s-appt { border-radius: 11px; }
 .pin.s-sale { border-radius: 5px; }
-.pin.s-empty, .pin.s-reserved, .pin.s-movingin, .pin.s-left { border-style: dashed; }
+.pin.s-empty, .pin.s-reserved, .pin.s-movingin, .pin.s-left, .pin.s-refit, .pin.s-opening { border-style: dashed; }
 
 /* Notice + toast */
 #notice { position: absolute; top: 12px; left: 12px; right: 72px; z-index: 600; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
@@ -191,3 +195,8 @@ textarea { resize: vertical; }
 .pin .bz svg { width: 9px; height: 9px; }
 .pin { position: relative; }
 #btn-filter { font: 700 12px/1 var(--font-body); }
+
+.splits { display: grid; gap: 6px; margin: 8px 0; }
+.split { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.split b { font: 700 20px/1 var(--font-num); min-width: 3.4em; }
+.split span { color: var(--ink2); font-size: 14px; }

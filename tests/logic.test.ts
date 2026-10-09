@@ -140,3 +140,23 @@ describe('to-do list', () => {
     expect(todoCount(t, now)).toBe(2);
   });
 });
+
+import { homesOf, summaryText } from '../src/day';
+import { statusesFor } from '../src/types';
+describe('homes and businesses split', () => {
+  const t = new Date(2026, 9, 9, 11).getTime();
+  const mk = (id: string, status: string, kind?: string) => ({ id, roadId: 'r', num: id, lat: 0, lng: 0, status, name: '', phone: '', note: '', appt: '', ts: t, kind }) as never;
+  it('counts businesses separately and homes as the remainder', () => {
+    const r = summarise([mk('1', 'noanswer'), mk('2', 'noanswer', 'biz'), mk('3', 'sale', 'biz'), mk('4', 'appt'), mk('5', 'refit', 'biz')], '2026-10-09');
+    expect(r.doors).toBe(5);
+    expect(r.biz).toMatchObject({ doors: 3, noanswer: 1, sale: 1, stages: 1 });
+    expect(homesOf(r)).toMatchObject({ doors: 2, noanswer: 1, appt: 1, sale: 0 });
+    expect(summaryText(r)).toContain('Businesses: 3 visits');
+  });
+  it('only offers the stages that fit a home or a shop', () => {
+    expect(statusesFor('biz')).toContain('refit');
+    expect(statusesFor('biz')).not.toContain('movingin');
+    expect(statusesFor('home')).toContain('movingin');
+    expect(statusesFor('home')).not.toContain('opening');
+  });
+});

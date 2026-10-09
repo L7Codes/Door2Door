@@ -1,4 +1,4 @@
-export type Status = 'none' | 'noanswer' | 'no' | 'follow' | 'appt' | 'sale' | 'empty' | 'reserved' | 'movingin' | 'left';
+export type Status = 'none' | 'noanswer' | 'no' | 'follow' | 'appt' | 'sale' | 'empty' | 'reserved' | 'movingin' | 'left' | 'refit' | 'opening';
 
 export interface Road {
   id: string;
@@ -45,6 +45,18 @@ export interface Snapshot {
 }
 
 /** One day of knocking, frozen so it survives later edits to houses. */
+export interface DayCounts {
+  doors: number;
+  noanswer: number;
+  answered: number;
+  no: number;
+  follow: number;
+  left: number;
+  appt: number;
+  sale: number;
+  stages: number;
+}
+
 export interface DayRecord {
   date: string; // YYYY-MM-DD, local
   doors: number;
@@ -60,6 +72,8 @@ export interface DayRecord {
   first: number;
   last: number;
   finished: boolean;
+  /** The business part of the totals above. Missing on days saved before businesses existed. */
+  biz?: DayCounts;
 }
 
 export interface Lookup {
@@ -81,13 +95,15 @@ export const STATUS_LABEL: Record<Status, string> = {
   empty: 'Not sold',
   reserved: 'Sold, not in yet',
   movingin: 'Moving in',
-  left: 'Left my number'
+  left: 'Left my number',
+  refit: 'Being renovated',
+  opening: 'New shop coming'
 };
 
-export const STATUS_ORDER: Status[] = ['noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'left', 'none'];
+export const STATUS_ORDER: Status[] = ['noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'left', 'refit', 'opening', 'none'];
 
 /** Empty-house stages: what you saw from the pavement, and how many days until you should look again. */
-export const STAGE_DAYS: Partial<Record<Status, number>> = { empty: 42, reserved: 21, movingin: 7 };
+export const STAGE_DAYS: Partial<Record<Status, number>> = { empty: 42, reserved: 21, movingin: 7, refit: 28, opening: 14 };
 /** Statuses that carry a check-back date: the empty-house stages, plus someone who took your number. */
 export const REMIND_DAYS: Partial<Record<Status, number>> = { ...STAGE_DAYS, left: 56 };
 export const hasDate = (s: Status): boolean => s in REMIND_DAYS;
@@ -97,4 +113,10 @@ export const BIZ_TYPES = ['Convenience store', 'Off-licence', 'Barber', 'Hairdre
 
 /** What an outcome is called for this house: a shop's "No answer" is the manager being out. */
 export const statusLabel = (h: { status: Status; kind?: string }): string =>
-  h.kind === 'biz' && h.status === 'noanswer' ? 'Manager not in' : STATUS_LABEL[h.status];
+  h.kind === 'biz' && h.status === 'noanswer' ? 'Manager not in' : h.kind === 'biz' && h.status === 'empty' ? 'Empty unit / to let' : STATUS_LABEL[h.status];
+
+/** Stages that only make sense for one kind of place. */
+const HOME_ONLY: Status[] = ['reserved', 'movingin'];
+const BIZ_ONLY: Status[] = ['refit', 'opening'];
+export const statusesFor = (kind?: string): Status[] =>
+  STATUS_ORDER.filter((s) => s !== 'none' && !(kind === 'biz' ? HOME_ONLY : BIZ_ONLY).includes(s));
