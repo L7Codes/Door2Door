@@ -1,4 +1,4 @@
-export type Status = 'none' | 'noanswer' | 'no' | 'follow' | 'appt' | 'sale' | 'empty' | 'reserved' | 'movingin';
+export type Status = 'none' | 'noanswer' | 'no' | 'follow' | 'appt' | 'sale' | 'empty' | 'reserved' | 'movingin' | 'left';
 
 export interface Road {
   id: string;
@@ -50,6 +50,7 @@ export interface DayRecord {
   follow: number;
   appt: number;
   sale: number;
+  left?: number;
   stages: number;
   roads: number;
   first: number;
@@ -73,11 +74,15 @@ export const STATUS_LABEL: Record<Status, string> = {
   sale: 'Sale',
   empty: 'Not sold',
   reserved: 'Sold, not in yet',
-  movingin: 'Moving in'
+  movingin: 'Moving in',
+  left: 'Left my number'
 };
 
-export const STATUS_ORDER: Status[] = ['noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'none'];
+export const STATUS_ORDER: Status[] = ['noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'left', 'none'];
 
 /** Empty-house stages: what you saw from the pavement, and how many days until you should look again. */
 export const STAGE_DAYS: Partial<Record<Status, number>> = { empty: 42, reserved: 21, movingin: 7 };
+/** Statuses that carry a check-back date: the empty-house stages, plus someone who took your number. */
+export const REMIND_DAYS: Partial<Record<Status, number>> = { ...STAGE_DAYS, left: 56 };
+export const hasDate = (s: Status): boolean => s in REMIND_DAYS;
 export const isStage = (s: Status): boolean => s in STAGE_DAYS;

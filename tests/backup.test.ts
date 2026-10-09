@@ -12,7 +12,7 @@ const snap: Snapshot = {
 
 describe('backup', () => {
   it('round-trips', () => {
-    const day = { date: '2026-10-09', doors: 5, noanswer: 2, answered: 3, no: 1, follow: 1, appt: 1, sale: 0, stages: 0, roads: 1, first: 1, last: 2, finished: true };
+    const day = { date: '2026-10-09', doors: 5, noanswer: 2, answered: 3, no: 1, follow: 1, appt: 1, sale: 0, left: 0, stages: 0, roads: 1, first: 1, last: 2, finished: true };
     const full = { ...snap, houses: snap.houses.map((h) => ({ ...h, hist: 'empty:2026-10-09' })), days: [day] };
     expect(parseBackup(makeBackup(full))).toEqual(full);
     const old = parseBackup(makeBackup(snap));

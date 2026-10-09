@@ -4,7 +4,7 @@ import { addHist, cursorFor, distance, guessNext, inDays, shortDate, matchRoad, 
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Lookup, Road, Status } from './types';
-import { isStage, STAGE_DAYS, STATUS_LABEL } from './types';
+import { hasDate, REMIND_DAYS, STATUS_LABEL } from './types';
 
 interface Flow {
   lat: number;
@@ -167,7 +167,7 @@ function stepOutcome(): void {
   const f = flow!;
   const r = store.road(f.roadId);
   const was = f.roadId && f.num !== '' ? store.houses.find((h) => h.roadId === f.roadId && h.num === f.num) : undefined;
-  const wasNote = was && isStage(was.status) ? `Last time: ${STATUS_LABEL[was.status]}${was.appt ? ', check back ' + shortDate(was.appt) : ''}. ` : '';
+  const wasNote = was && hasDate(was.status) ? `Last time: ${STATUS_LABEL[was.status]}${was.appt ? ', check back ' + shortDate(was.appt) : ''}. ` : '';
   sheet.swap(`<h2><span class="plate">${esc(f.num || '?')}</span> ${esc(r?.name ?? '')}</h2><p>${esc(wasNote)}What happened?</p>
     <div class="row"><button class="btn big s-noanswer" data-a="save" data-s="noanswer">No answer</button><button class="btn big" data-a="answered">Answered</button></div>
     <div class="row"><button class="btn big s-empty" data-a="empty">Empty house / not moved in</button></div>
@@ -204,7 +204,7 @@ function stepInterested(): void {
     <label for="f-phone">Phone</label><input id="f-phone" inputmode="tel" autocomplete="off" value="${esc(f.phone)}">
     <label for="f-note">Note</label><input id="f-note" autocomplete="off" value="${esc(f.note)}">
     <div class="row"><button class="btn big s-follow" data-a="save-form" data-s="follow">Save follow-up</button><button class="btn big s-appt" data-a="to-appt">Book appointment</button></div>
-    <div class="row"><button class="btn big s-sale" data-a="save-form" data-s="sale">Sale made</button></div>`);
+    <div class="row"><button class="btn big s-sale" data-a="save-form" data-s="sale">Sale made</button><button class="btn big s-left" data-a="left-save">They took my number</button></div>`);
 }
 
 function stepAppt(): void {
@@ -247,7 +247,7 @@ async function commit(status: Status, extra: { note?: string; appt?: string } = 
     name: f.name || dup?.name || '',
     phone: f.phone || dup?.phone || '',
     note: extra.note ?? (f.note || dup?.note || ''),
-    appt: extra.appt ?? (dup && isStage(dup.status) ? '' : dup?.appt ?? ''),
+    appt: extra.appt ?? (dup && hasDate(dup.status) ? '' : dup?.appt ?? ''),
     ts: Date.now(),
     hist: addHist(dup?.hist, status)
   };
@@ -340,7 +340,7 @@ export function handleFlowAction(a: string, el: HTMLElement): boolean {
     case 'empty': stepEmpty(); return true;
     case 'empty-save': {
       const st = (el.dataset['s'] ?? 'empty') as Status;
-      void commit(st, { appt: inDays(STAGE_DAYS[st] ?? 0) });
+      void commit(st, { appt: inDays(REMIND_DAYS[st] ?? 0) });
       return true;
     }
     case 'answered': stepAnswered(); return true;
@@ -349,6 +349,7 @@ export function handleFlowAction(a: string, el: HTMLElement): boolean {
     case 'save': void commit((el.dataset['s'] ?? 'noanswer') as Status); return true;
     case 'interested': readForm(); stepInterested(); return true;
     case 'to-appt': readForm(); stepAppt(); return true;
+    case 'left-save': readForm(); void commit('left', { appt: inDays(REMIND_DAYS.left ?? 56) }); return true;
     case 'save-form': readForm(); void commit((el.dataset['s'] ?? 'follow') as Status); return true;
     case 'save-appt': readForm(); void commit('appt', { appt: ($('f-appt') as HTMLInputElement).value }); return true;
     default:

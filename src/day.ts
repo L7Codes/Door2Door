@@ -7,7 +7,7 @@ const dayKey = (ts: number): string => inDays(0, ts);
 
 /** Count what happened on one local day (midnight to midnight) from the houses touched in it. */
 export function summarise(houses: House[], date: string): DayRecord {
-  const rec: DayRecord = { date, doors: 0, noanswer: 0, answered: 0, no: 0, follow: 0, appt: 0, sale: 0, stages: 0, roads: 0, first: 0, last: 0, finished: false };
+  const rec: DayRecord = { date, doors: 0, noanswer: 0, answered: 0, no: 0, follow: 0, appt: 0, sale: 0, left: 0, stages: 0, roads: 0, first: 0, last: 0, finished: false };
   const roads = new Set<string>();
   for (const h of houses) {
     if (h.status === 'none' || dayKey(h.ts) !== date) continue;
@@ -23,6 +23,7 @@ export function summarise(houses: House[], date: string): DayRecord {
       else if (h.status === 'follow') rec.follow++;
       else if (h.status === 'appt') rec.appt++;
       else if (h.status === 'sale') rec.sale++;
+      else if (h.status === 'left') rec.left = (rec.left ?? 0) + 1;
     }
   }
   rec.roads = roads.size;
@@ -88,7 +89,7 @@ export function summaryText(r: DayRecord): string {
     `Door2Door, ${dateLabel(r.date)}`,
     `${r.doors} doors knocked`,
     `${r.noanswer} no answer, ${r.answered} answered (${pct(r.answered, r.doors - r.stages)}% of doors with someone in)`,
-    `Of those answered: ${r.no} not interested, ${r.follow} follow-up, ${r.appt} appointments, ${r.sale} sales`
+    `Of those answered: ${r.no} not interested, ${r.follow} follow-up, ${r.left ?? 0} left my number, ${r.appt} appointments, ${r.sale} sales`
   ];
   if (r.stages) lines.push(`${r.stages} empty or new-build houses logged to check back on`);
   if (r.doors) lines.push(`${r.roads} road${r.roads === 1 ? '' : 's'}, ${hhmm(r.first)} to ${hhmm(r.last)}`);

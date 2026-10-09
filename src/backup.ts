@@ -1,7 +1,7 @@
 import type { DayRecord, House, Road, Snapshot, Status } from './types';
 import { STATUS_LABEL } from './types';
 
-const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin']);
+const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'reserved', 'movingin', 'left']);
 
 export function makeBackup(s: Snapshot, now = Date.now()): string {
   return JSON.stringify({ app: 'door2door', version: 1, exportedAt: new Date(now).toISOString(), ...s });
@@ -67,7 +67,7 @@ export function parseBackup(text: string): Snapshot | null {
       const n = (k: string): number => num(d[k]) ?? 0;
       days.push({
         date, doors: n('doors'), noanswer: n('noanswer'), answered: n('answered'), no: n('no'), follow: n('follow'),
-        appt: n('appt'), sale: n('sale'), stages: n('stages'), roads: n('roads'), first: n('first'), last: n('last'),
+        appt: n('appt'), sale: n('sale'), left: n('left'), stages: n('stages'), roads: n('roads'), first: n('first'), last: n('last'),
         finished: d['finished'] === true
       });
     }

@@ -184,3 +184,22 @@ describe('empty houses', () => {
     expect(h.appt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
+
+describe('left my number', () => {
+  it('saves someone who took your number with an 8 week check-back', async () => {
+    nominatim = { road: 'Foxglove Drive', house_number: '3' };
+    await knock();
+    click('confirm-yes');
+    click('answered');
+    click('interested');
+    type('f-note', 'Slightly interested, would not give number');
+    click('left-save');
+    await sleep(60);
+    const h = store.houses[0];
+    expect(h.status).toBe('left');
+    expect(h.note).toContain('Slightly');
+    const days = (new Date(h.appt).getTime() - Date.now()) / 86400000;
+    expect(days).toBeGreaterThan(54);
+    expect(days).toBeLessThan(57);
+  });
+});

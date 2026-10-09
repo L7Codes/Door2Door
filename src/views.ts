@@ -5,7 +5,7 @@ import { allDays, dateLabel, hhmm, markShown, pct, saveDay, summaryText, today }
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Road, Status } from './types';
-import { isStage, STAGE_DAYS, STATUS_LABEL, STATUS_ORDER } from './types';
+import { hasDate, REMIND_DAYS, STATUS_LABEL, STATUS_ORDER } from './types';
 import type { DayRecord } from './types';
 
 interface Hooks {
@@ -57,7 +57,7 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
       const h = store.house(id);
       if (h) {
         const st = el.dataset['s'] as Status;
-        const appt = isStage(st) ? inDays(STAGE_DAYS[st] ?? 0) : isStage(h.status) ? '' : h.appt;
+        const appt = hasDate(st) ? inDays(REMIND_DAYS[st] ?? 0) : hasDate(h.status) ? '' : h.appt;
         void store.putHouse({ ...h, status: st, appt, hist: addHist(h.hist, st), ts: Date.now() }).then(() => {
           hooks.changed();
           openHouse(id);
@@ -227,7 +227,7 @@ export function renderRoads(): void {
       return `<article class="road"><header><h3>${esc(road?.name ?? 'Needs a road')}</h3>
         <p>${esc(road?.area ?? '')} ${road ? '' : 'Pins dropped without a road name.'}</p>
         <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') + c('reserved') + c('movingin') ? ` · ${c('empty') + c('reserved') + c('movingin')} empty` : ''}</p></header>
-        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([isStage(h.status) && h.appt ? `${STATUS_LABEL[h.status]}, check back ${shortDate(h.appt)}` : STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
+        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([hasDate(h.status) && h.appt ? `${STATUS_LABEL[h.status]}, check back ${shortDate(h.appt)}` : STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
         ${road ? `<button class="btn sm" data-rename="${road.id}">Rename road</button>` : ''}</article>`;
     })
     .join('');
@@ -243,7 +243,7 @@ function dayBody(r: DayRecord): string {
   return `<div class="dbig"><b>${r.doors}</b><span>doors knocked</span></div>
     ${nudge ? `<p class="nudge">${nudge}</p>` : ''}
     <div class="dgrid">${row(r.noanswer, 'No answer', 's-noanswer')}${row(r.answered, 'Answered', 'ans')}</div>
-    <div class="dgrid four">${row(r.no, 'Not interested', 's-no')}${row(r.follow, 'Follow-up', 's-follow')}${row(r.appt, 'Appointments', 's-appt')}${row(r.sale, 'Sales', 's-sale')}</div>
+    <div class="dgrid four">${row(r.no, 'Not interested', 's-no')}${row(r.follow, 'Follow-up', 's-follow')}${row(r.left ?? 0, 'Left my number', 's-left')}${row(r.appt, 'Appointments', 's-appt')}${row(r.sale, 'Sales', 's-sale')}</div>
     ${r.stages ? `<p class="dline">${r.stages} empty or new-build house${r.stages === 1 ? '' : 's'} logged to check back on.</p>` : ''}
     ${r.doors ? `<p class="dline">${pct(r.answered, withSomeone)}% of doors with someone in were answered. ${r.roads} road${r.roads === 1 ? '' : 's'}, ${hhmm(r.first)} to ${hhmm(r.last)}.</p>` : '<p class="dline">No doors yet.</p>'}`;
 }

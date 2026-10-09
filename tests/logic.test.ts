@@ -122,3 +122,21 @@ describe('daily summary', () => {
     store.houses = [];
   });
 });
+
+import { buildTodo, todoCount } from '../src/todo';
+describe('to-do list', () => {
+  const now = new Date(2026, 9, 9, 12).getTime();
+  const mk = (id: string, status: string, appt: string, ts = now) => ({ id, roadId: 'r', num: id, lat: 0, lng: 0, status, name: '', phone: '', note: '', appt, ts }) as never;
+  it('groups appointments, calls and check-backs', () => {
+    const t = buildTodo(
+      [mk('a', 'appt', '2026-10-12T18:00'), mk('b', 'appt', '2026-10-10T18:00'), mk('c', 'follow', ''), mk('d', 'left', inDays(-1, now)),
+       mk('e', 'empty', inDays(20, now)), mk('f', 'sale', ''), mk('g', 'noanswer', '')],
+      now
+    );
+    expect(t.appts.map((h) => h.id)).toEqual(['b', 'a']);
+    expect(t.calls.map((h) => h.id)).toEqual(['c']);
+    expect(t.due.map((h) => h.id)).toEqual(['d']);
+    expect(t.soon.map((h) => h.id)).toEqual(['e']);
+    expect(todoCount(t, now)).toBe(2);
+  });
+});

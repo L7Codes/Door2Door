@@ -7,17 +7,18 @@ import { registerSW } from 'virtual:pwa-register';
 import { $, ICON } from './dom';
 import { restartGps, watchGps, type Fix, type GpsState } from './geo';
 import { handleFlowAction, initFlow, knock, knockHint } from './flow';
-import { dueEmpty, tally } from './logic';
+import { tally } from './logic';
 import { DoorMap } from './map';
 import { store } from './store';
 import { initSheet, notice, sheet, toast } from './ui';
 import { applyTheme, handleViewAction, initViews, openDay, openHouse, openRename, openSettings, renderRoads, showYesterday } from './views';
 import { rollOver } from './day';
+import { buildTodo, renderTodo, todoCount } from './todo';
 
 let fix: Fix | null = null;
 let moving = false;
 let gps: GpsState = 'waiting';
-let view: 'map' | 'roads' = 'map';
+let view: 'map' | 'roads' | 'todo' = 'map';
 let doorMap: DoorMap;
 
 function renderTally(): void {
@@ -30,9 +31,8 @@ function renderNotice(): void {
   if (gps === 'blocked')
     return notice('Location is blocked. Swipe Door2Door away, reopen it and tap Allow when asked. Tap here to try again.', restartGps);
   if (gps === 'unsupported') return notice('This browser cannot give a GPS position.');
-  const due = dueEmpty(store.houses);
-  if (due.length)
-    return notice(`${due.length} empty house${due.length > 1 ? 's' : ''} ready to check back on. Tap to see.`, () => setView('roads'));
+  const todo = todoCount(buildTodo(store.houses));
+  if (todo && view === 'map') return notice(`${todo} thing${todo > 1 ? 's' : ''} on your to-do list. Tap to see.`, () => setView('todo'));
   const last = store.meta['lastBackup'] as number | undefined;
   const stale = !last || Date.now() - last > 7 * 86400000;
   if (store.houses.length >= 5 && stale) return notice('Save a backup so your houses are safe. Tap here.', () => void openSettings());
@@ -43,21 +43,33 @@ function changed(): void {
   doorMap.drawPins();
   renderTally();
   if (view === 'roads') renderRoads();
+  if (view === 'todo') renderTodo();
+  renderTodoBadge();
   $('k-sub').textContent = knockHint();
   renderNotice();
 }
 
-function setView(v: 'map' | 'roads'): void {
+function renderTodoBadge(): void {
+  const n = todoCount(buildTodo(store.houses));
+  $('nav-todo').innerHTML = `${ICON.todo}<span>${n ? `To-do ${n}` : 'To-do'}</span>`;
+}
+
+function setView(v: 'map' | 'roads' | 'todo'): void {
   view = v;
   const map = v === 'map';
   $('map').hidden = !map;
-  $('roads').hidden = map;
+  $('roads').hidden = v !== 'roads';
+  $('todo').hidden = v !== 'todo';
   document.querySelector<HTMLElement>('.fab-col')!.hidden = !map;
   const nav = $('nav-roads');
-  nav.setAttribute('aria-pressed', String(!map));
-  nav.innerHTML = map ? `${ICON.roads}<span>Roads</span>` : `${ICON.map}<span>Map</span>`;
+  nav.setAttribute('aria-pressed', String(v === 'roads'));
+  nav.innerHTML = v === 'roads' ? `${ICON.map}<span>Map</span>` : `${ICON.roads}<span>Roads</span>`;
+  $('nav-todo').setAttribute('aria-pressed', String(v === 'todo'));
   if (map) setTimeout(() => doorMap.refresh(), 30);
-  else renderRoads();
+  else if (v === 'roads') renderRoads();
+  else renderTodo();
+  renderTodoBadge();
+  renderNotice();
 }
 
 async function boot(): Promise<void> {
@@ -133,12 +145,23 @@ async function boot(): Promise<void> {
 
   $('btn-layers').onclick = () => $('btn-layers').setAttribute('aria-pressed', String(doorMap.toggleBase()));
   $('btn-locate').onclick = () => fix && doorMap.centreOn(fix.lat, fix.lng);
-  $('nav-roads').onclick = () => setView(view === 'map' ? 'roads' : 'map');
+  $('nav-roads').onclick = () => setView(view === 'roads' ? 'map' : 'roads');
+  $('nav-todo').onclick = () => setView(view === 'todo' ? 'map' : 'todo');
   $('nav-menu').onclick = () => void openSettings();
   $('knock').onclick = () => {
     if (view !== 'map') setView('map');
     void knock();
   };
+  const gotoHouse = (e: Event): void => {
+    const g = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]');
+    const h = g ? store.house(g.dataset['goto'] ?? '') : null;
+    if (h) {
+      setView('map');
+      doorMap.centreOn(h.lat, h.lng);
+      openHouse(h.id);
+    }
+  };
+  $('todo').addEventListener('click', gotoHouse);
   $('roads').addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
     const g = t.closest<HTMLElement>('[data-goto]');

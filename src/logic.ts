@@ -1,4 +1,4 @@
-import { isStage } from './types';
+import { hasDate, isStage } from './types';
 import type { Cursor, House, Road, Snapshot } from './types';
 
 const R = 6371000;
@@ -134,7 +134,7 @@ export function inDays(days: number, now = Date.now()): string {
 /** Empty houses whose check-back date has arrived. */
 export function dueEmpty(houses: House[], now = Date.now()): House[] {
   const today = inDays(0, now);
-  return houses.filter((h) => isStage(h.status) && h.appt && h.appt.slice(0, 10) <= today);
+  return houses.filter((h) => hasDate(h.status) && h.appt && h.appt.slice(0, 10) <= today);
 }
 
 /** 14/10 style date for display. */
