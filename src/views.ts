@@ -1,6 +1,7 @@
 import { $, esc } from './dom';
 import { makeBackup, parseBackup, saveFile, toCsv } from './backup';
 import { addHist, inDays, mergeSnapshots, shortDate } from './logic';
+import { tileCount } from './tiles';
 import { allDays, dateLabel, hhmm, homesOf, markShown, pct, saveDay, summaryText, today } from './day';
 import { store } from './store';
 import { sheet, toast } from './ui';
@@ -208,7 +209,9 @@ export async function openSettings(): Promise<void> {
   let used = '';
   try {
     const est = await navigator.storage?.estimate?.();
-    if (est?.usage) used = `Door2Door is using about ${mb(est.usage)} on this phone, nearly all of it saved map tiles.`;
+    const tiles = await tileCount();
+    if (est?.usage)
+      used = `Door2Door is using about ${mb(est.usage)} on this phone. Your houses are only a few KB; the rest is ${tiles} saved map picture${tiles === 1 ? '' : 's'} and the app itself. Saved maps are capped and the oldest are dropped automatically.`;
   } catch {
     /* estimate is optional */
   }

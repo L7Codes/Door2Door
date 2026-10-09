@@ -28,14 +28,14 @@ export default defineConfig({
       },
       workbox: {
         navigateFallback: 'index.html',
-        // Map tiles are cached as you use them, with a hard cap so they never swell.
+        // Map tiles are cached as you use them, with a hard cap so they never swell (keep in step with TILE_CAPS in src/tiles.ts).
         runtimeCaching: [
           {
             urlPattern: ({ url }) => url.hostname.endsWith('tile.openstreetmap.org'),
             handler: 'CacheFirst',
             options: {
               cacheName: 'tiles-street',
-              expiration: { maxEntries: 1200, maxAgeSeconds: 60 * 60 * 24 * 30, purgeOnQuotaError: true },
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 7, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [0, 200] }
             }
           },
@@ -44,7 +44,7 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'tiles-satellite',
-              expiration: { maxEntries: 900, maxAgeSeconds: 60 * 60 * 24 * 30, purgeOnQuotaError: true },
+              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [0, 200] }
             }
           }

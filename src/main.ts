@@ -13,6 +13,7 @@ import { store } from './store';
 import { initSheet, notice, sheet, toast } from './ui';
 import { applyTheme, handleViewAction, initViews, openDay, openHouse, openRename, openSettings, renderRoads, showYesterday } from './views';
 import { rollOver } from './day';
+import { trimTiles } from './tiles';
 import { buildTodo, renderTodo, todoCount } from './todo';
 
 let fix: Fix | null = null;
@@ -198,6 +199,7 @@ async function boot(): Promise<void> {
   setView('map');
   changed();
   void navigator.storage?.persist?.();
+  void trimTiles();
   registerSW({ immediate: true });
   setInterval(renderTally, 60000);
 }
