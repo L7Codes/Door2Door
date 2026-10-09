@@ -1,7 +1,6 @@
 import { $, esc } from './dom';
 import { makeBackup, parseBackup, saveFile, toCsv } from './backup';
 import { addHist, inDays, mergeSnapshots, shortDate } from './logic';
-import { tileCount } from './tiles';
 import { allDays, dateLabel, hhmm, homesOf, markShown, pct, saveDay, summaryText, today } from './day';
 import { store } from './store';
 import { sheet, toast } from './ui';
@@ -209,9 +208,8 @@ export async function openSettings(): Promise<void> {
   let used = '';
   try {
     const est = await navigator.storage?.estimate?.();
-    const tiles = await tileCount();
     if (est?.usage)
-      used = `Door2Door is using about ${mb(est.usage)} on this phone. Your houses are only a few KB; the rest is ${tiles} saved map picture${tiles === 1 ? '' : 's'} and the app itself. Saved maps are capped and the oldest are dropped automatically.`;
+      used = `Door2Door reports about ${mb(est.usage)}. Your houses are only a few KB and the app does not store map pictures any more. Safari can overstate this figure, and it should fall after a reopen.`;
   } catch {
     /* estimate is optional */
   }
