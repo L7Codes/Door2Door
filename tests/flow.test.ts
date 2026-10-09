@@ -29,7 +29,7 @@ beforeEach(async () => {
   await store.replaceAll({ houses: [], roads: [], cursor: null });
   shop = {};
   await store.setMeta('lastKind', 'home');
-  initFlow({ getFix: () => fix, getCentre: () => fix, changed: () => {} });
+  initFlow({ getFix: () => fix, getCentre: () => fix, changed: () => {}, pickOnMap: (done) => done({ lat: fix.lat + 0.0005, lng: fix.lng }) });
   vi.stubGlobal('fetch', () => Promise.resolve({ ok: true, json: () => Promise.resolve({ ...shop, address: { suburb: 'Vange', ...nominatim } }) }));
 });
 
@@ -252,5 +252,20 @@ describe('shops not trading yet', () => {
     const days = (new Date(h.appt).getTime() - Date.now()) / 86400000;
     expect(days).toBeGreaterThan(26);
     expect(days).toBeLessThan(29);
+  });
+});
+
+describe('setting the spot on the map', () => {
+  it('uses the tapped spot instead of the GPS spot and checks the address there', async () => {
+    nominatim = { road: 'High Street', house_number: '30' };
+    const gpsLat = fix.lat;
+    await knock();
+    click('pick-map');
+    await sleep(60);
+    expect(text()).toContain('30 High Street');
+    click('confirm-yes');
+    click('save', { s: 'noanswer' });
+    await sleep(60);
+    expect(store.houses[0].lat).toBeCloseTo(gpsLat + 0.0005, 5);
   });
 });

@@ -25,6 +25,19 @@ export const sheet = {
     s.innerHTML = '<div class="grab" aria-hidden="true"></div>' + html;
     s.scrollTop = 0;
   },
+  /** Tuck the sheet away without ending what it was doing. */
+  hideKeep(): void {
+    const s = $('sheet');
+    s.classList.remove('open');
+    s.hidden = true;
+    $('scrim').hidden = true;
+  },
+  showAgain(): void {
+    const s = $('sheet');
+    s.hidden = false;
+    $('scrim').hidden = false;
+    requestAnimationFrame(() => s.classList.add('open'));
+  },
   close(): void {
     const s = $('sheet');
     s.classList.remove('open');

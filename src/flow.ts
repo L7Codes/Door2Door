@@ -29,6 +29,8 @@ interface Deps {
   getFix: () => Fix | null;
   getCentre: () => { lat: number; lng: number };
   changed: () => void;
+  /** Let the person tap the map to say where they are. Calls back with the spot, or null if they cancel. */
+  pickOnMap: (done: (at: { lat: number; lng: number } | null) => void) => void;
 }
 
 let deps: Deps;
@@ -82,8 +84,13 @@ export async function knock(): Promise<void> {
   }
   flow = blank(fix.lat, fix.lng, fix.acc);
   flow.stale = stale;
+  await identify();
+}
+
+/** Ask the map what is at the flow's position, then move on to the right first question. */
+async function identify(): Promise<void> {
   sheet.swap('<h2>Checking address…</h2><p>Looking for a house at your position.</p>');
-  const l = await lookup(fix.lat, fix.lng);
+  const l = await lookup(flow!.lat, flow!.lng);
   if (!flow) return;
   flow.detected = l?.road ?? '';
   flow.area = l?.area ?? '';
@@ -110,7 +117,8 @@ function stepConfirm(): void {
   const f = flow!;
   const g = f.guess!;
   sheet.swap(`<h2>Are you at ${esc(g.num)} ${esc(g.road)}?</h2><p>${esc(g.area)}</p>${roughNote(f)}
-    <div class="row"><button class="btn pri big" data-a="confirm-yes">Yes</button><button class="btn big" data-a="confirm-no">No</button></div>`);
+    <div class="row"><button class="btn pri big" data-a="confirm-yes">Yes</button><button class="btn big" data-a="confirm-no">No</button></div>
+    <div class="row"><button class="btn quiet" data-a="pick-map">Wrong spot? Set it on the map</button></div>`);
 }
 
 function decideRoad(): void {
@@ -140,7 +148,7 @@ function stepSame(): void {
     <div class="stepper"><button class="btn" data-a="n-2">−2</button><div class="num" aria-live="polite">${esc(f.num)}</div><button class="btn" data-a="n+2">+2</button></div>
     <div class="row tight"><button class="btn sm" data-a="n-1">−1</button><button class="btn sm" data-a="n+1">+1</button><button class="btn sm" data-a="flip">Other side</button><button class="btn sm" data-a="type-num">Type</button></div>
     <div class="row"><button class="btn pri big" data-a="same-yes">Yes, ${esc(f.num)}</button><button class="btn big" data-a="new-road">New road</button></div>
-    <div class="row"><button class="btn quiet" data-a="drop">Just drop a pin, fix later</button></div>`);
+    <div class="row"><button class="btn quiet" data-a="pick-map">Wrong spot? Set it on the map</button><button class="btn quiet" data-a="drop">Just drop a pin, fix later</button></div>`);
 }
 
 function stepNewRoad(): void {
@@ -154,7 +162,7 @@ function stepNewRoad(): void {
     <label for="road">Road name</label><input id="road" autocomplete="off" autocapitalize="words" enterkeyhint="next" value="${esc(f.roadName)}">
     <label for="num">House number</label><input id="num" inputmode="numeric" autocomplete="off" enterkeyhint="done" value="${esc(f.num)}">
     <div class="row"><button class="btn pri big" data-a="road-done">Continue</button><button class="btn big" data-a="close">Cancel</button></div>
-    <div class="row"><button class="btn quiet" data-a="drop">Just drop a pin, fix later</button></div>`);
+    <div class="row"><button class="btn quiet" data-a="pick-map">Wrong spot? Set it on the map</button><button class="btn quiet" data-a="drop">Just drop a pin, fix later</button></div>`);
   setTimeout(() => (document.getElementById(f.roadName ? 'num' : 'road') as HTMLInputElement | null)?.focus(), 80);
 }
 
@@ -306,6 +314,16 @@ export function handleFlowAction(a: string, el: HTMLElement): boolean {
   const n = parseInt(f.num, 10) || 0;
   readBiz();
   switch (a) {
+    case 'pick-map':
+      sheet.hideKeep();
+      deps.pickOnMap((at) => {
+        if (!flow) return;
+        sheet.showAgain();
+        if (!at) return;
+        Object.assign(flow, { lat: at.lat, lng: at.lng, acc: 0, stale: false, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '' });
+        void identify();
+      });
+      return true;
     case 'kind-home': f.kind = 'home'; stepOutcome(); return true;
     case 'kind-biz': f.kind = 'biz'; stepOutcome(); return true;
     case 'btype':

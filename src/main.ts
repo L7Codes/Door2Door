@@ -88,7 +88,22 @@ async function boot(): Promise<void> {
   $('nav-menu').innerHTML = `${ICON.menu}<span>Menu</span>`;
 
   initSheet();
-  initFlow({ getFix: () => fix, getCentre: () => doorMap.centre(), changed });
+  const pickPoint = (text: string, done: (at: { lat: number; lng: number } | null) => void): void => {
+    moving = true;
+    if (view !== 'map') setView('map');
+    if (fix) doorMap.centreOn(fix.lat, fix.lng, 20);
+    const finish = (at: { lat: number; lng: number } | null): void => {
+      moving = false;
+      notice(null);
+      doorMap.map.off('click', onTap);
+      renderNotice();
+      done(at);
+    };
+    const onTap = (e: { latlng: { lat: number; lng: number } }): void => finish({ lat: e.latlng.lat, lng: e.latlng.lng });
+    doorMap.map.on('click', onTap);
+    notice(text, () => finish(null));
+  };
+  initFlow({ getFix: () => fix, getCentre: () => doorMap.centre(), changed, pickOnMap: (done) => pickPoint('Tap the map where you are standing. Tap here to cancel.', done) });
   initViews({
     changed,
     movePin: (id) => {
