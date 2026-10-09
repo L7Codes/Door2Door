@@ -27,6 +27,8 @@ export interface House {
   kind?: 'home' | 'biz';
   bname?: string;
   btype?: string;
+  /** Postcode the map gave for this spot, kept for calendar entries. */
+  pc?: string;
 }
 
 /** Where you last knocked: drives the "still on this road?" guess. */

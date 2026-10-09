@@ -1,4 +1,4 @@
-import { hasDate, isStage } from './types';
+import { hasDate, isStage, REMIND_DAYS } from './types';
 import type { Cursor, House, Road, Snapshot } from './types';
 
 const R = 6371000;
@@ -156,4 +156,34 @@ export function houseLabel(h: House, road: Road | null): string {
   const r = road?.name ?? 'Unnamed road';
   if (h.kind === 'biz') return `${h.bname || 'Business'}, ${h.num ? h.num + ' ' : ''}${r}`;
   return `${h.num ? h.num + ' ' : ''}${r}`;
+}
+
+export const MILE = 1609.34;
+
+export interface Nearby {
+  house: House;
+  metres: number;
+  /** Days until the check-back date; negative when overdue. */
+  daysLeft: number;
+}
+
+/**
+ * Check-backs close enough to be worth a detour. A reminder set for 4 weeks or more shows up
+ * from a week early; a shorter one only from 3 days early. Overdue ones always show.
+ */
+export function nearbyDue(houses: House[], lat: number, lng: number, now = Date.now(), maxMiles = 2): Nearby[] {
+  const today = new Date(`${inDays(0, now)}T12:00:00`).getTime();
+  const out: Nearby[] = [];
+  for (const h of houses) {
+    if (!hasDate(h.status) || !h.appt) continue;
+    const due = new Date(`${h.appt.slice(0, 10)}T12:00:00`).getTime();
+    if (Number.isNaN(due)) continue;
+    const daysLeft = Math.round((due - today) / 86400000);
+    const interval = REMIND_DAYS[h.status] ?? 0;
+    const window = interval >= 28 ? 7 : 3;
+    if (daysLeft > window) continue;
+    const metres = distance(lat, lng, h.lat, h.lng);
+    if (metres <= maxMiles * MILE) out.push({ house: h, metres, daysLeft });
+  }
+  return out.sort((a, b) => a.metres - b.metres);
 }

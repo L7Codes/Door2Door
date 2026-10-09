@@ -1,6 +1,8 @@
 import { $, esc } from './dom';
 import { makeBackup, parseBackup, saveFile, toCsv } from './backup';
-import { addHist, inDays, mergeSnapshots, shortDate } from './logic';
+import { buildIcs } from './calendar';
+import { addHist, houseLabel, inDays, mergeSnapshots, shortDate } from './logic';
+import type { Nearby } from './logic';
 import { allDays, dateLabel, hhmm, homesOf, markShown, pct, saveDay, summaryText, today } from './day';
 import { store } from './store';
 import { sheet, toast } from './ui';
@@ -55,7 +57,7 @@ export function openHouse(id: string): void {
     <label for="e-note">Note</label><textarea id="e-note" rows="2">${esc(h.note)}</textarea>
     <label for="e-num">${biz ? 'Unit or number' : 'House number'}</label><input id="e-num" autocomplete="off" autocapitalize="characters" value="${esc(h.num)}">
     <div class="row"><button class="btn pri big" data-a="save-edit" data-id="${id}">Save</button><button class="btn big" data-a="close">Close</button></div>
-    <div class="row"><button class="btn" data-a="move-pin" data-id="${id}">Move pin on map</button><button class="btn quiet" data-a="delete" data-id="${id}">Delete this house</button></div>`);
+    <div class="row"><button class="btn" data-a="move-pin" data-id="${id}">Move pin on map</button>${h.appt && (h.status === 'appt' || hasDate(h.status)) ? `<button class="btn" data-a="cal-one" data-id="${id}">Add to calendar</button>` : ''}<button class="btn quiet" data-a="delete" data-id="${id}">Delete this house</button></div>`);
 }
 
 export function openRename(id: string): void {
@@ -118,6 +120,25 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
       }
       return true;
     }
+    case 'cal-one':
+      exportCalendar([id]);
+      return true;
+    case 'goto-house': {
+      const h = store.house(id);
+      if (h) {
+        sheet.close();
+        hooks.goto(h);
+      }
+      return true;
+    }
+    case 'toggle-meta': {
+      const k = el.dataset['k'] ?? '';
+      void store.setMeta(k, store.meta[k] === false).then(() => {
+        hooks.changed();
+        void openSettings();
+      });
+      return true;
+    }
     case 'move-pin':
       hooks.movePin(id);
       return true;
@@ -175,6 +196,29 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
   }
 }
 
+/** Builds a calendar file (house number, postcode and purpose only) and hands it to the phone. */
+export async function exportCalendar(ids?: string[]): Promise<void> {
+  const list = ids ? store.houses.filter((h) => ids.includes(h.id)) : store.houses;
+  const { text, count } = buildIcs(list, store.roads, store.meta['calNotes'] !== false);
+  if (!count) return toast('Nothing with a date to add');
+  const ok = await saveFile(count === 1 ? 'door2door-visit.ics' : 'door2door-visits.ics', 'text/calendar', text);
+  if (ok) toast(`${count} visit${count > 1 ? 's' : ''} ready. Choose Calendar.`);
+}
+
+const away = (m: number): string => `${(m / 1609.34).toFixed(1)} mi`;
+
+export function openNearby(list: Nearby[]): void {
+  const rows = list
+    .map(({ house: h, metres, daysLeft }) => {
+      const when = daysLeft < 0 ? `${-daysLeft} day${daysLeft === -1 ? '' : 's'} overdue` : daysLeft === 0 ? 'due today' : `due in ${daysLeft} day${daysLeft === 1 ? '' : 's'}`;
+      return `<article class="todo"><button class="todo-main" data-a="goto-house" data-id="${h.id}"><span class="dot s-${h.status}"></span>
+        <span class="t-body"><b>${esc(houseLabel(h, store.road(h.roadId)))}</b><span>${esc(statusLabel(h))} · ${when} · ${away(metres)}</span></span></button></article>`;
+    })
+    .join('');
+  sheet.show(`<h2>Due near you</h2><p class="hint">Check-backs close by that are due or nearly due.</p>${rows || '<p>Nothing close by.</p>'}
+    <div class="row"><button class="btn big" data-a="close">Close</button></div>`);
+}
+
 export function onRestoreFile(file: File): void {
   void file.text().then((text) => {
     const snap = parseBackup(text);
@@ -226,6 +270,9 @@ export async function openSettings(): Promise<void> {
     <div class="row"><button class="btn" data-a="save-csv">Export for spreadsheet</button></div>
     <h3>Storage</h3><p>${used || 'Houses take almost no space.'}</p>
     <div class="row"><button class="btn" data-a="clear-cache">Clear saved map tiles</button></div>
+    <h3>Reminders</h3>
+    <div class="row tight"><button class="btn sm${store.meta['nearby'] === false ? '' : ' pri'}" data-a="toggle-meta" data-k="nearby">Due near me: ${store.meta['nearby'] === false ? 'off' : 'on'}</button><button class="btn sm${store.meta['calNotes'] === false ? '' : ' pri'}" data-a="toggle-meta" data-k="calNotes">Notes in calendar: ${store.meta['calNotes'] === false ? 'off' : 'on'}</button></div>
+    <p class="hint">Calendar entries only ever hold the house number, postcode and why you are going back. Never names or phone numbers.</p>
     <h3>Appearance</h3><div class="row tight">${t('auto', 'Match phone')}${t('light', 'Light')}${t('dark', 'Dark')}</div>
     <div class="row"><button class="btn big" data-a="close">Done</button></div>
     <input type="file" id="restore-file" accept="application/json,.json" hidden>`);

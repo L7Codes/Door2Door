@@ -59,7 +59,7 @@ function item(h: House, sub: string): string {
     : '';
   return `<article class="todo"><button class="todo-main" data-goto="${h.id}"><span class="dot s-${h.status}"></span>
     <span class="t-body"><b>${esc(label(h))}</b><span>${esc([h.name, sub].filter(Boolean).join(' · '))}</span>${h.note ? `<em>${esc(h.note)}</em>` : ''}</span></button>
-    ${acts ? `<div class="t-acts">${acts}</div>` : ''}</article>`;
+    <div class="t-acts">${acts}${h.appt ? `<button class="btn sm" data-cal="${h.id}">Calendar</button>` : ''}</div></article>`;
 }
 
 function section(title: string, hint: string, items: string[]): string {
@@ -69,7 +69,9 @@ function section(title: string, hint: string, items: string[]): string {
 
 export function renderTodo(now = Date.now()): void {
   const t = buildTodo(store.houses, now);
+  const dated = store.houses.filter((h) => h.appt && (h.status === 'appt' || hasDate(h.status))).length;
   const html = [
+    dated ? `<div class="row"><button class="btn" data-cal="all">Add all ${dated} to calendar</button></div>` : '',
     section('Appointments', 'Booked in, soonest first.', t.appts.map((h) => item(h, when(h)))),
     section('Call or text back', 'Interested and waiting on you.', t.calls.map((h) => item(h, `got their details ${ago(h.ts, now)}`))),
     section('Check back now', 'These are due. Go and knock.', t.due.map((h) => item(h, `${statusLabel(h)}, ${when(h)}`))),

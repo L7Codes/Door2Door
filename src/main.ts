@@ -7,11 +7,12 @@ import { registerSW } from 'virtual:pwa-register';
 import { $, ICON } from './dom';
 import { restartGps, watchGps, type Fix, type GpsState } from './geo';
 import { handleFlowAction, initFlow, knock, knockHint } from './flow';
-import { tally } from './logic';
+import { nearbyDue, tally, distance } from './logic';
+import type { Nearby } from './logic';
 import { DoorMap } from './map';
 import { store } from './store';
 import { initSheet, notice, sheet, toast } from './ui';
-import { applyTheme, handleViewAction, initViews, openDay, openHouse, openRename, openSettings, renderRoads, showYesterday } from './views';
+import { applyTheme, handleViewAction, initViews, openDay, exportCalendar, openHouse, openNearby, openRename, openSettings, renderRoads, showYesterday } from './views';
 import { rollOver } from './day';
 import { clearOldTiles } from './tiles';
 import { buildTodo, renderTodo, todoCount } from './todo';
@@ -21,6 +22,21 @@ let moving = false;
 let gps: GpsState = 'waiting';
 let view: 'map' | 'roads' | 'todo' = 'map';
 let doorMap: DoorMap;
+let nearby: Nearby[] = [];
+let nearAt: { lat: number; lng: number; t: number } | null = null;
+
+function updateNearby(force = false): void {
+  if (!fix || store.meta['nearby'] === false) {
+    nearby = [];
+    return;
+  }
+  const now = Date.now();
+  if (!force && nearAt && distance(nearAt.lat, nearAt.lng, fix.lat, fix.lng) < 100 && now - nearAt.t < 120000) return;
+  nearAt = { lat: fix.lat, lng: fix.lng, t: now };
+  const before = nearby.length;
+  nearby = nearbyDue(store.houses, fix.lat, fix.lng, now);
+  if (before !== nearby.length) renderNotice();
+}
 
 function renderTally(): void {
   const t = tally(store.houses, Date.now());
@@ -32,6 +48,7 @@ function renderNotice(): void {
   if (gps === 'blocked')
     return notice('Location is blocked. Swipe Door2Door away, reopen it and tap Allow when asked. Tap here to try again.', restartGps);
   if (gps === 'unsupported') return notice('This browser cannot give a GPS position.');
+  if (nearby.length && view === 'map') return notice(`${nearby.length} check-back${nearby.length > 1 ? 's' : ''} due near you. Tap to see.`, () => openNearby(nearby));
   const todo = todoCount(buildTodo(store.houses));
   if (todo && view === 'map') return notice(`${todo} thing${todo > 1 ? 's' : ''} on your to-do list. Tap to see.`, () => setView('todo'));
   const last = store.meta['lastBackup'] as number | undefined;
@@ -41,6 +58,7 @@ function renderNotice(): void {
 }
 
 function changed(): void {
+  updateNearby(true);
   doorMap.drawPins();
   renderTally();
   if (view === 'roads') renderRoads();
@@ -172,6 +190,11 @@ async function boot(): Promise<void> {
     void knock();
   };
   const gotoHouse = (e: Event): void => {
+    const c = (e.target as HTMLElement).closest<HTMLElement>('[data-cal]');
+    if (c) {
+      void exportCalendar(c.dataset['cal'] === 'all' ? undefined : [c.dataset['cal'] ?? '']);
+      return;
+    }
     const g = (e.target as HTMLElement).closest<HTMLElement>('[data-goto]');
     const h = g ? store.house(g.dataset['goto'] ?? '') : null;
     if (h) {
@@ -198,6 +221,7 @@ async function boot(): Promise<void> {
   watchGps(
     (f) => {
       fix = f;
+      updateNearby();
       doorMap.setFix(f);
       $('k-sub').textContent = knockHint();
     },

@@ -23,6 +23,7 @@ interface Flow {
   kind: 'home' | 'biz';
   bname: string;
   btype: string;
+  pc: string;
 }
 
 interface Deps {
@@ -93,6 +94,7 @@ async function identify(): Promise<void> {
   const l = await lookup(flow!.lat, flow!.lng);
   if (!flow) return;
   flow.detected = l?.road ?? '';
+  flow.pc = l?.postcode ?? '';
   flow.area = l?.area ?? '';
   if (l?.place) {
     flow.kind = 'biz';
@@ -105,7 +107,7 @@ async function identify(): Promise<void> {
 }
 
 function blank(lat: number, lng: number, acc: number): Flow {
-  return { lat, lng, acc, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '', name: '', phone: '', note: '', stale: false, kind: store.meta['lastKind'] === 'biz' ? 'biz' : 'home', bname: '', btype: '' };
+  return { lat, lng, acc, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '', name: '', phone: '', note: '', stale: false, kind: store.meta['lastKind'] === 'biz' ? 'biz' : 'home', bname: '', btype: '', pc: '' };
 }
 
 const roughNote = (f: Flow): string =>
@@ -287,7 +289,8 @@ async function commit(status: Status, extra: { note?: string; appt?: string } = 
     hist: addHist(dup?.hist, status),
     kind: f.kind,
     bname: f.kind === 'biz' ? f.bname : '',
-    btype: f.kind === 'biz' ? f.btype : ''
+    btype: f.kind === 'biz' ? f.btype : '',
+    pc: f.pc || dup?.pc || ''
   };
   await store.putHouse(house);
   void store.setMeta('lastKind', f.kind);
