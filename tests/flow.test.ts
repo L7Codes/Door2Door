@@ -6,6 +6,7 @@ import { handleFlowAction, initFlow, knock, knockHint } from '../src/flow';
 
 let fix = { lat: 51.56, lng: 0.56, acc: 6 };
 let nominatim: { road?: string; house_number?: string } = {};
+let shop: { name?: string; category?: string } = {};
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const text = () => document.getElementById('sheet')!.textContent ?? '';
 const click = (a: string, extra: Record<string, string> = {}) => {
@@ -26,8 +27,10 @@ beforeEach(async () => {
   });
   await store.load();
   await store.replaceAll({ houses: [], roads: [], cursor: null });
+  shop = {};
+  await store.setMeta('lastKind', 'home');
   initFlow({ getFix: () => fix, getCentre: () => fix, changed: () => {} });
-  vi.stubGlobal('fetch', () => Promise.resolve({ ok: true, json: () => Promise.resolve({ address: { suburb: 'Vange', ...nominatim } }) }));
+  vi.stubGlobal('fetch', () => Promise.resolve({ ok: true, json: () => Promise.resolve({ ...shop, address: { suburb: 'Vange', ...nominatim } }) }));
 });
 
 describe('knock flow', () => {
@@ -201,5 +204,33 @@ describe('left my number', () => {
     const days = (new Date(h.appt).getTime() - Date.now()) / 86400000;
     expect(days).toBeGreaterThan(54);
     expect(days).toBeLessThan(57);
+  });
+});
+
+describe('businesses', () => {
+  it('knows a shop from the map, saves its name and type, and calls no answer "Manager not in"', async () => {
+    nominatim = { road: 'High Street', house_number: '12' };
+    shop = { name: 'Costcutter', category: 'shop' };
+    await knock();
+    click('confirm-yes');
+    expect(text()).toContain('Manager not in');
+    expect((document.getElementById('b-name') as HTMLInputElement).value).toBe('Costcutter');
+    click('btype', { t: 'Convenience store' });
+    click('save', { s: 'noanswer' });
+    await sleep(60);
+    const h = store.houses[0];
+    expect(h).toMatchObject({ kind: 'biz', bname: 'Costcutter', btype: 'Convenience store', status: 'noanswer' });
+  });
+  it('lets you switch to Business on an ordinary address and remembers it', async () => {
+    nominatim = { road: 'High Street', house_number: '14' };
+    await knock();
+    click('confirm-yes');
+    click('kind-biz');
+    type('b-name', 'Cuts & Co');
+    click('btype', { t: 'Barber' });
+    click('save', { s: 'noanswer' });
+    await sleep(60);
+    expect(store.houses[0]).toMatchObject({ kind: 'biz', bname: 'Cuts & Co', btype: 'Barber' });
+    expect(store.meta['lastKind']).toBe('biz');
   });
 });

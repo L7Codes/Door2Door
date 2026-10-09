@@ -141,7 +141,7 @@ textarea { resize: vertical; }
 .road header p { margin: 2px 0 0; color: var(--mute); font-size: 14px; }
 .road .counts { font-size: 14px; color: var(--ink2) !important; margin-bottom: 6px; }
 .hrow { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 8px 0; border: 0; border-top: 1px solid var(--line); background: none; text-align: left; }
-.hrow b { min-width: 2.6em; font: 700 22px/1 var(--font-num); font-variant-numeric: tabular-nums; }
+.hrow b { max-width: 45%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: none; min-width: 2.6em; font: 700 22px/1 var(--font-num); font-variant-numeric: tabular-nums; }
 .hrow .what { color: var(--mute); font-size: 15px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .road > .btn { margin-top: 8px; }
 .empty { text-align: center; padding: 56px 24px; color: var(--mute); }
@@ -181,3 +181,13 @@ textarea { resize: vertical; }
 .t-body em { color: var(--mute); font-size: 14px; font-style: normal; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .t-acts { display: flex; gap: 6px; }
 .t-acts .btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+
+/* Home / business */
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 6px 0 10px; }
+.seg button { border: 0; background: var(--bg); color: var(--ink2); min-height: 44px; font-weight: 700; }
+.seg button[aria-pressed='true'] { background: var(--ink); color: var(--bg); }
+.chip.on { background: var(--ink); color: var(--bg); }
+.pin .bz { position: absolute; top: -7px; right: -7px; width: 16px; height: 16px; border-radius: 50%; background: var(--plate-bg); color: var(--plate-fg); border: 1.5px solid #fff; display: grid; place-items: center; }
+.pin .bz svg { width: 9px; height: 9px; }
+.pin { position: relative; }
+#btn-filter { font: 700 12px/1 var(--font-body); }

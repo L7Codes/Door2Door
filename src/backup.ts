@@ -46,7 +46,8 @@ export function parseBackup(text: string): Snapshot | null {
       note: str(h['note']),
       appt: str(h['appt']),
       ts: num(h['ts']) ?? 0,
-      hist: str(h['hist'])
+      hist: str(h['hist']),
+      ...(str(h['kind']) === 'biz' ? { kind: 'biz' as const, bname: str(h['bname']), btype: str(h['btype']) } : {})
     });
   }
   const c = o['cursor'] as Record<string, unknown> | null | undefined;
@@ -83,10 +84,10 @@ function safeCell(v: unknown): string {
 }
 
 export function toCsv(s: Snapshot): string {
-  const head = ['Road', 'Area', 'Number', 'Status', 'Name', 'Phone', 'Note', 'Appointment / check back', 'History', 'Lat', 'Lng', 'When'];
+  const head = ['Type', 'Business', 'Business type', 'Road', 'Area', 'Number', 'Status', 'Name', 'Phone', 'Note', 'Appointment / check back', 'History', 'Lat', 'Lng', 'When'];
   const rows = s.houses.map((h) => {
     const r = s.roads.find((x) => x.id === h.roadId);
-    return [r?.name ?? '', r?.area ?? '', h.num, STATUS_LABEL[h.status], h.name, h.phone, h.note, h.appt, h.hist ?? '', h.lat, h.lng, new Date(h.ts).toISOString()];
+    return [h.kind === 'biz' ? 'Business' : 'Home', h.bname ?? '', h.btype ?? '', r?.name ?? '', r?.area ?? '', h.num, STATUS_LABEL[h.status], h.name, h.phone, h.note, h.appt, h.hist ?? '', h.lat, h.lng, new Date(h.ts).toISOString()];
   });
   return [head, ...rows].map((row) => row.map(safeCell).join(',')).join('\n');
 }

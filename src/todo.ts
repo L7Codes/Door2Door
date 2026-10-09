@@ -1,7 +1,7 @@
 import { $, esc } from './dom';
-import { dueEmpty, inDays, shortDate } from './logic';
+import { dueEmpty, houseLabel, inDays, shortDate } from './logic';
 import { store } from './store';
-import { hasDate, STATUS_LABEL } from './types';
+import { hasDate, statusLabel } from './types';
 import type { House } from './types';
 
 export interface Todo {
@@ -33,10 +33,7 @@ export function todoCount(t: Todo, now = Date.now()): number {
   return t.appts.filter((h) => h.appt.slice(0, 10) <= today).length + t.calls.length + t.due.length;
 }
 
-const label = (h: House): string => {
-  const r = store.road(h.roadId);
-  return `${h.num ? h.num + ' ' : ''}${r?.name ?? 'Unnamed road'}`;
-};
+const label = (h: House): string => houseLabel(h, store.road(h.roadId));
 
 const phoneOk = (p: string): string => p.replace(/[^\d+]/g, '');
 
@@ -75,8 +72,8 @@ export function renderTodo(now = Date.now()): void {
   const html = [
     section('Appointments', 'Booked in, soonest first.', t.appts.map((h) => item(h, when(h)))),
     section('Call or text back', 'Interested and waiting on you.', t.calls.map((h) => item(h, `got their details ${ago(h.ts, now)}`))),
-    section('Check back now', 'These are due. Go and knock.', t.due.map((h) => item(h, `${STATUS_LABEL[h.status]}, ${when(h)}`))),
-    section('Coming up', 'Not due yet.', t.soon.map((h) => item(h, `${STATUS_LABEL[h.status]}, ${when(h)}`)))
+    section('Check back now', 'These are due. Go and knock.', t.due.map((h) => item(h, `${statusLabel(h)}, ${when(h)}`))),
+    section('Coming up', 'Not due yet.', t.soon.map((h) => item(h, `${statusLabel(h)}, ${when(h)}`)))
   ].join('');
   $('todo').innerHTML = html || '<div class="empty"><h2>Nothing to do yet</h2><p>Appointments, follow-ups and houses to check back on will show here.</p></div>';
 }

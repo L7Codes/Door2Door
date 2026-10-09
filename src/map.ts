@@ -14,6 +14,9 @@ const sat = L.tileLayer(
   { maxZoom: 21, maxNativeZoom: 19, attribution: 'Imagery &copy; Esri' }
 );
 
+const SHOP =
+  '<i class="bz"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9h18l-1.5-5h-15L3 9Zm1 0v11h16V9"/></svg></i>';
+
 export class DoorMap {
   readonly map: L.Map;
   private pins = L.layerGroup();
@@ -21,6 +24,7 @@ export class DoorMap {
   private ring: L.Circle | null = null;
   private centred = false;
   satellite = true;
+  filter: 'all' | 'home' | 'biz' = 'all';
 
   constructor(el: HTMLElement, private onPin: (id: string) => void) {
     this.map = L.map(el, { zoomControl: false, attributionControl: true }).setView([51.5626, 0.5603], 18);
@@ -28,6 +32,8 @@ export class DoorMap {
     this.pins.addTo(this.map);
     const saved = store.meta['satellite'];
     this.satellite = typeof saved === 'boolean' ? saved : true;
+    const f = store.meta['filter'];
+    if (f === 'home' || f === 'biz') this.filter = f;
     this.applyBase();
   }
 
@@ -39,6 +45,13 @@ export class DoorMap {
       if (this.map.hasLayer(sat)) this.map.removeLayer(sat);
       street.addTo(this.map);
     }
+  }
+
+  cycleFilter(): 'all' | 'home' | 'biz' {
+    this.filter = this.filter === 'all' ? 'home' : this.filter === 'home' ? 'biz' : 'all';
+    void store.setMeta('filter', this.filter);
+    this.drawPins();
+    return this.filter;
   }
 
   toggleBase(): boolean {
@@ -83,11 +96,13 @@ export class DoorMap {
   drawPins(): void {
     this.pins.clearLayers();
     for (const h of store.houses) {
-      const label = h.num ? esc(h.num) : '?';
+      const biz = h.kind === 'biz';
+      if ((this.filter === 'home' && biz) || (this.filter === 'biz' && !biz)) continue;
+      const label = biz ? esc((h.bname || h.num || 'B').slice(0, 2).toUpperCase()) : h.num ? esc(h.num) : '?';
       const long = label.length > 3 ? ' long' : '';
       const icon = L.divIcon({
         className: '',
-        html: `<div class="pin s-${h.status}${long}"><span>${label}</span></div>`,
+        html: `<div class="pin s-${h.status}${long}"><span>${label}</span>${biz ? SHOP : ''}</div>`,
         iconSize: [34, 34],
         iconAnchor: [17, 17]
       });

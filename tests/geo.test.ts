@@ -41,3 +41,13 @@ describe('gps', () => {
     expect(fixes).toEqual([1]);
   });
 });
+
+describe('business detection', () => {
+  it('reads a shop name from the map', () => {
+    expect(parseLookup({ name: 'Costcutter', category: 'shop', address: { road: 'High Street', house_number: '12' } })?.place).toBe('Costcutter');
+  });
+  it('ignores plain addresses and tag words', () => {
+    expect(parseLookup({ name: '', category: 'building', address: { road: 'Oak Road', house_number: '14' } })?.place).toBeUndefined();
+    expect(parseLookup({ address: { road: 'Oak Road', amenity: 'parking' } })?.place).toBeUndefined();
+  });
+});

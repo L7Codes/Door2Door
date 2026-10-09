@@ -5,7 +5,7 @@ import { allDays, dateLabel, hhmm, markShown, pct, saveDay, summaryText, today }
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Road, Status } from './types';
-import { hasDate, REMIND_DAYS, STATUS_LABEL, STATUS_ORDER } from './types';
+import { BIZ_TYPES, hasDate, REMIND_DAYS, STATUS_LABEL, STATUS_ORDER, statusLabel } from './types';
 import type { DayRecord } from './types';
 
 interface Hooks {
@@ -25,18 +25,35 @@ const statusButtons = (id: string): string =>
     .map((s) => `<button class="btn sm s-${s}" data-a="set-status" data-id="${id}" data-s="${s}">${STATUS_LABEL[s]}</button>`)
     .join('');
 
+function histLine(h: House): string {
+  const parts = (h.hist ?? '').split('|').filter(Boolean);
+  if (parts.length < 2) return '';
+  const txt = parts
+    .map((p) => {
+      const [st, d] = p.split(':');
+      return `${STATUS_LABEL[st as Status] ?? st} ${shortDate(d ?? '')}`;
+    })
+    .join(' → ');
+  return `<p class="hist">${esc(txt)}</p>`;
+}
+
 export function openHouse(id: string): void {
   const h = store.house(id);
   if (!h) return;
   const r = store.road(h.roadId);
-  sheet.show(`<h2><span class="dot s-${h.status}"></span><span class="plate">${esc(h.num || '?')}</span> ${esc(r?.name ?? 'Unnamed road')}</h2>
-    <p>${STATUS_LABEL[h.status]}${h.status === 'empty' ? (h.appt ? ' · check back ' + esc(shortDate(h.appt)) : '') : h.appt ? ' · ' + esc(h.appt.replace('T', ' ')) : ''}</p>
+  const biz = h.kind === 'biz';
+  sheet.show(`<h2><span class="dot s-${h.status}"></span>${biz ? esc(h.bname || 'Business') : `<span class="plate">${esc(h.num || '?')}</span>`} ${esc(biz ? (h.num ? h.num + ' ' : '') + (r?.name ?? '') : (r?.name ?? 'Unnamed road'))}</h2>
+    <p>${esc(statusLabel(h))}${hasDate(h.status) ? (h.appt ? ' · check back ' + esc(shortDate(h.appt)) : '') : h.appt ? ' · ' + esc(h.appt.replace('T', ' ')) : ''}</p>
+    ${histLine(h)}
     <div class="row tight">${statusButtons(id)}</div>
-    ${h.status === 'empty' ? `<label for="e-date">Check back on</label><input id="e-date" type="date" value="${esc(h.appt.slice(0, 10))}">` : ''}
-    <label for="e-name">Name</label><input id="e-name" autocomplete="off" value="${esc(h.name)}">
+    ${hasDate(h.status) ? `<label for="e-date">Check back on</label><input id="e-date" type="date" value="${esc(h.appt.slice(0, 10))}">` : ''}
+    <div class="seg" role="group" aria-label="Home or business"><button data-a="set-kind" data-id="${id}" data-k="home" aria-pressed="${!biz}">Home</button><button data-a="set-kind" data-id="${id}" data-k="biz" aria-pressed="${biz}">Business</button></div>
+    ${biz ? `<label for="e-bname">Business name</label><input id="e-bname" autocomplete="off" autocapitalize="words" value="${esc(h.bname ?? '')}">
+      <label for="e-btype">Type of business</label><input id="e-btype" list="biz-types" autocomplete="off" value="${esc(h.btype ?? '')}"><datalist id="biz-types">${BIZ_TYPES.map((t) => `<option value="${esc(t)}">`).join('')}</datalist>` : ''}
+    <label for="e-name">${biz ? 'Who you spoke to' : 'Name'}</label><input id="e-name" autocomplete="off" value="${esc(h.name)}">
     <label for="e-phone">Phone</label><input id="e-phone" inputmode="tel" autocomplete="off" value="${esc(h.phone)}">
     <label for="e-note">Note</label><textarea id="e-note" rows="2">${esc(h.note)}</textarea>
-    <label for="e-num">House number</label><input id="e-num" autocomplete="off" autocapitalize="characters" value="${esc(h.num)}">
+    <label for="e-num">${biz ? 'Unit or number' : 'House number'}</label><input id="e-num" autocomplete="off" autocapitalize="characters" value="${esc(h.num)}">
     <div class="row"><button class="btn pri big" data-a="save-edit" data-id="${id}">Save</button><button class="btn big" data-a="close">Close</button></div>
     <div class="row"><button class="btn" data-a="move-pin" data-id="${id}">Move pin on map</button><button class="btn quiet" data-a="delete" data-id="${id}">Delete this house</button></div>`);
 }
@@ -69,7 +86,7 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
       const h = store.house(id);
       if (h) {
         void store
-          .putHouse({ ...h, name: val('e-name'), phone: val('e-phone'), note: val('e-note'), num: val('e-num').trim().toUpperCase(), appt: h.status === 'empty' && document.getElementById('e-date') ? val('e-date') : h.appt })
+          .putHouse({ ...h, name: val('e-name'), phone: val('e-phone'), note: val('e-note'), num: val('e-num').trim().toUpperCase(), appt: hasDate(h.status) && document.getElementById('e-date') ? val('e-date') : h.appt, bname: document.getElementById('e-bname') ? val('e-bname').trim() : h.bname, btype: document.getElementById('e-btype') ? val('e-btype').trim() : h.btype })
           .then(() => {
             hooks.changed();
             sheet.close();
@@ -90,6 +107,17 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
         el.textContent = 'Tap again to delete';
       }
       return true;
+    case 'set-kind': {
+      const h = store.house(id);
+      if (h) {
+        const kind = el.dataset['k'] === 'biz' ? 'biz' : 'home';
+        void store.putHouse({ ...h, kind, ts: Date.now() }).then(() => {
+          hooks.changed();
+          openHouse(id);
+        });
+      }
+      return true;
+    }
     case 'move-pin':
       hooks.movePin(id);
       return true;
@@ -227,7 +255,7 @@ export function renderRoads(): void {
       return `<article class="road"><header><h3>${esc(road?.name ?? 'Needs a road')}</h3>
         <p>${esc(road?.area ?? '')} ${road ? '' : 'Pins dropped without a road name.'}</p>
         <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') + c('reserved') + c('movingin') ? ` · ${c('empty') + c('reserved') + c('movingin')} empty` : ''}</p></header>
-        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([hasDate(h.status) && h.appt ? `${STATUS_LABEL[h.status]}, check back ${shortDate(h.appt)}` : STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
+        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.kind === 'biz' ? (h.bname || 'Shop') : (h.num || '?'))}</b><span class="what">${esc([hasDate(h.status) && h.appt ? `${statusLabel(h)}, check back ${shortDate(h.appt)}` : statusLabel(h), h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
         ${road ? `<button class="btn sm" data-rename="${road.id}">Rename road</button>` : ''}</article>`;
     })
     .join('');

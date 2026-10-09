@@ -4,7 +4,7 @@ import { addHist, cursorFor, distance, guessNext, inDays, shortDate, matchRoad, 
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Lookup, Road, Status } from './types';
-import { hasDate, REMIND_DAYS, STATUS_LABEL } from './types';
+import { BIZ_TYPES, hasDate, REMIND_DAYS, statusLabel } from './types';
 
 interface Flow {
   lat: number;
@@ -20,6 +20,9 @@ interface Flow {
   phone: string;
   note: string;
   stale: boolean;
+  kind: 'home' | 'biz';
+  bname: string;
+  btype: string;
 }
 
 interface Deps {
@@ -84,6 +87,10 @@ export async function knock(): Promise<void> {
   if (!flow) return;
   flow.detected = l?.road ?? '';
   flow.area = l?.area ?? '';
+  if (l?.place) {
+    flow.kind = 'biz';
+    flow.bname = l.place;
+  }
   if (l && l.num && l.road) {
     flow.guess = l;
     stepConfirm();
@@ -91,7 +98,7 @@ export async function knock(): Promise<void> {
 }
 
 function blank(lat: number, lng: number, acc: number): Flow {
-  return { lat, lng, acc, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '', name: '', phone: '', note: '', stale: false };
+  return { lat, lng, acc, roadId: null, roadName: '', detected: '', area: '', guess: null, num: '', name: '', phone: '', note: '', stale: false, kind: store.meta['lastKind'] === 'biz' ? 'biz' : 'home', bname: '', btype: '' };
 }
 
 const roughNote = (f: Flow): string =>
@@ -166,12 +173,25 @@ function stepTypeNum(): void {
 function stepOutcome(): void {
   const f = flow!;
   const r = store.road(f.roadId);
+  const biz = f.kind === 'biz';
   const was = f.roadId && f.num !== '' ? store.houses.find((h) => h.roadId === f.roadId && h.num === f.num) : undefined;
-  const wasNote = was && hasDate(was.status) ? `Last time: ${STATUS_LABEL[was.status]}${was.appt ? ', check back ' + shortDate(was.appt) : ''}. ` : '';
+  const wasNote = was && hasDate(was.status) ? `Last time: ${statusLabel(was)}${was.appt ? ', check back ' + shortDate(was.appt) : ''}. ` : '';
+  const seg = `<div class="seg" role="group" aria-label="Home or business"><button data-a="kind-home" aria-pressed="${!biz}">Home</button><button data-a="kind-biz" aria-pressed="${biz}">Business</button></div>`;
+  const bizForm = biz
+    ? `<label for="b-name">Business name</label><input id="b-name" autocomplete="off" autocapitalize="words" value="${esc(f.bname)}">
+       <div class="chips">${BIZ_TYPES.map((t) => `<button class="chip${f.btype === t ? ' on' : ''}" data-a="btype" data-t="${esc(t)}">${esc(t)}</button>`).join('')}</div>`
+    : '';
   sheet.swap(`<h2><span class="plate">${esc(f.num || '?')}</span> ${esc(r?.name ?? '')}</h2><p>${esc(wasNote)}What happened?</p>
-    <div class="row"><button class="btn big s-noanswer" data-a="save" data-s="noanswer">No answer</button><button class="btn big" data-a="answered">Answered</button></div>
-    <div class="row"><button class="btn big s-empty" data-a="empty">Empty house / not moved in</button></div>
+    ${seg}${bizForm}
+    <div class="row"><button class="btn big s-noanswer" data-a="save" data-s="noanswer">${biz ? 'Manager not in' : 'No answer'}</button><button class="btn big" data-a="answered">${biz ? 'Spoke to someone' : 'Answered'}</button></div>
+    ${biz ? '' : '<div class="row"><button class="btn big s-empty" data-a="empty">Empty house / not moved in</button></div>'}
     <div class="row"><button class="btn quiet" data-a="back-id">Change address</button></div>`);
+}
+
+/** Keep what was typed in the business name box before the screen is redrawn. */
+function readBiz(): void {
+  const el = document.getElementById('b-name') as HTMLInputElement | null;
+  if (flow && el) flow.bname = el.value.trim();
 }
 
 function stepEmpty(): void {
@@ -200,7 +220,7 @@ function stepNotInterested(): void {
 function stepInterested(): void {
   const f = flow!;
   sheet.swap(`<h2>Interested</h2>
-    <label for="f-name">Name</label><input id="f-name" autocomplete="off" autocapitalize="words" value="${esc(f.name)}">
+    <label for="f-name">${f.kind === 'biz' ? 'Who you spoke to' : 'Name'}</label><input id="f-name" autocomplete="off" autocapitalize="words" value="${esc(f.name)}">
     <label for="f-phone">Phone</label><input id="f-phone" inputmode="tel" autocomplete="off" value="${esc(f.phone)}">
     <label for="f-note">Note</label><input id="f-note" autocomplete="off" value="${esc(f.note)}">
     <div class="row"><button class="btn big s-follow" data-a="save-form" data-s="follow">Save follow-up</button><button class="btn big s-appt" data-a="to-appt">Book appointment</button></div>
@@ -249,13 +269,17 @@ async function commit(status: Status, extra: { note?: string; appt?: string } = 
     note: extra.note ?? (f.note || dup?.note || ''),
     appt: extra.appt ?? (dup && hasDate(dup.status) ? '' : dup?.appt ?? ''),
     ts: Date.now(),
-    hist: addHist(dup?.hist, status)
+    hist: addHist(dup?.hist, status),
+    kind: f.kind,
+    bname: f.kind === 'biz' ? f.bname : '',
+    btype: f.kind === 'biz' ? f.btype : ''
   };
   await store.putHouse(house);
+  void store.setMeta('lastKind', f.kind);
   if (f.roadId) await store.setCursor(cursorFor(store.cursor, f.roadId, f.num, f.lat, f.lng));
   sheet.close();
   deps.changed();
-  const label = `${house.num ? house.num + ' ' : ''}${STATUS_LABEL[status]}`;
+  const label = `${house.num ? house.num + ' ' : ''}${statusLabel({ status, kind: f.kind })}`;
   toast(prev ? `${label} (updated)` : `${label} saved`, {
     label: 'Undo',
     run: () => {
@@ -273,7 +297,14 @@ export function handleFlowAction(a: string, el: HTMLElement): boolean {
   if (!flow) return false;
   const f = flow;
   const n = parseInt(f.num, 10) || 0;
+  readBiz();
   switch (a) {
+    case 'kind-home': f.kind = 'home'; stepOutcome(); return true;
+    case 'kind-biz': f.kind = 'biz'; stepOutcome(); return true;
+    case 'btype':
+      f.btype = f.btype === (el.dataset['t'] ?? '') ? '' : (el.dataset['t'] ?? '');
+      stepOutcome();
+      return true;
     case 'nogps':
       decideRoad();
       return true;

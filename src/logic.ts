@@ -150,3 +150,10 @@ export function addHist(hist: string | undefined, status: string, now = Date.now
   if (parts[parts.length - 1] === entry) return hist ?? '';
   return parts.concat(entry).slice(-12).join('|');
 }
+
+/** How a house is named in lists and headings: a shop by its name, a home by number and road. */
+export function houseLabel(h: House, road: Road | null): string {
+  const r = road?.name ?? 'Unnamed road';
+  if (h.kind === 'biz') return `${h.bname || 'Business'}, ${h.num ? h.num + ' ' : ''}${r}`;
+  return `${h.num ? h.num + ' ' : ''}${r}`;
+}

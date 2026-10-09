@@ -23,6 +23,10 @@ export interface House {
   ts: number;
   /** Stage trail like "empty:2026-10-09|reserved:2026-11-06". */
   hist?: string;
+  /** 'biz' for a shop or office; missing means a home. */
+  kind?: 'home' | 'biz';
+  bname?: string;
+  btype?: string;
 }
 
 /** Where you last knocked: drives the "still on this road?" guess. */
@@ -63,6 +67,8 @@ export interface Lookup {
   road: string;
   area: string;
   postcode: string;
+  /** Shop or business name the map knows at this spot, if any. */
+  place?: string;
 }
 
 export const STATUS_LABEL: Record<Status, string> = {
@@ -86,3 +92,9 @@ export const STAGE_DAYS: Partial<Record<Status, number>> = { empty: 42, reserved
 export const REMIND_DAYS: Partial<Record<Status, number>> = { ...STAGE_DAYS, left: 56 };
 export const hasDate = (s: Status): boolean => s in REMIND_DAYS;
 export const isStage = (s: Status): boolean => s in STAGE_DAYS;
+
+export const BIZ_TYPES = ['Convenience store', 'Off-licence', 'Barber', 'Hairdresser', 'Nail salon', 'Beauty salon', 'Takeaway', 'Pub or bar', 'Office', 'Other'];
+
+/** What an outcome is called for this house: a shop's "No answer" is the manager being out. */
+export const statusLabel = (h: { status: Status; kind?: string }): string =>
+  h.kind === 'biz' && h.status === 'noanswer' ? 'Manager not in' : STATUS_LABEL[h.status];

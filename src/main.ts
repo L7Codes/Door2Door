@@ -82,6 +82,8 @@ async function boot(): Promise<void> {
   $('btn-layers').innerHTML = ICON.layers;
   $('btn-layers').setAttribute('aria-pressed', String(doorMap.satellite));
   $('btn-locate').innerHTML = ICON.locate;
+  const filterText = (f: string): string => (f === 'home' ? 'Homes' : f === 'biz' ? 'Shops' : 'All');
+  $('btn-filter').textContent = filterText(doorMap.filter);
   $('nav-menu').innerHTML = `${ICON.menu}<span>Menu</span>`;
 
   initSheet();
@@ -143,6 +145,7 @@ async function boot(): Promise<void> {
   });
   setInterval(() => void newDay(), 5 * 60000);
 
+  $('btn-filter').onclick = () => ($('btn-filter').textContent = filterText(doorMap.cycleFilter()));
   $('btn-layers').onclick = () => $('btn-layers').setAttribute('aria-pressed', String(doorMap.toggleBase()));
   $('btn-locate').onclick = () => fix && doorMap.centreOn(fix.lat, fix.lng);
   $('nav-roads').onclick = () => setView(view === 'roads' ? 'map' : 'roads');

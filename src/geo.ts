@@ -8,17 +8,23 @@ export interface Fix {
   ts?: number;
 }
 
-type Raw = { address?: Record<string, string> } | null | undefined;
+type Raw = { name?: string; category?: string; address?: Record<string, string> } | null | undefined;
+
+const PLACE_CATEGORIES = new Set(['shop', 'amenity', 'office', 'craft', 'leisure', 'tourism']);
 
 export function parseLookup(j: Raw): Lookup | null {
   const a = j?.address;
   if (!a) return null;
-  return {
+  const out: Lookup = {
     num: a.house_number ?? '',
     road: a.road ?? a.pedestrian ?? '',
     area: a.suburb ?? a.village ?? a.town ?? a.city ?? '',
     postcode: a.postcode ?? ''
   };
+  const place = (j?.category && PLACE_CATEGORIES.has(j.category) ? j.name : '') || a.shop || a.amenity || a.office || a.craft || '';
+  // OpenStreetMap sometimes puts a tag like "yes" or "convenience" here rather than a name.
+  if (place && /\s|[A-Z]/.test(place)) out.place = place;
+  return out;
 }
 
 /** Ask OpenStreetMap what is at this spot. Gives up after a few seconds so the app never waits. */
