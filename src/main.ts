@@ -7,7 +7,7 @@ import { registerSW } from 'virtual:pwa-register';
 import { $, ICON } from './dom';
 import { restartGps, watchGps, type Fix, type GpsState } from './geo';
 import { handleFlowAction, initFlow, knock, knockHint } from './flow';
-import { tally } from './logic';
+import { dueEmpty, tally } from './logic';
 import { DoorMap } from './map';
 import { store } from './store';
 import { initSheet, notice, sheet, toast } from './ui';
@@ -29,6 +29,9 @@ function renderNotice(): void {
   if (gps === 'blocked')
     return notice('Location is blocked. Swipe Door2Door away, reopen it and tap Allow when asked. Tap here to try again.', restartGps);
   if (gps === 'unsupported') return notice('This browser cannot give a GPS position.');
+  const due = dueEmpty(store.houses);
+  if (due.length)
+    return notice(`${due.length} empty house${due.length > 1 ? 's' : ''} ready to check back on. Tap to see.`, () => setView('roads'));
   const last = store.meta['lastBackup'] as number | undefined;
   const stale = !last || Date.now() - last > 7 * 86400000;
   if (store.houses.length >= 5 && stale) return notice('Save a backup so your houses are safe. Tap here.', () => void openSettings());

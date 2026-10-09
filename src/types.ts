@@ -1,4 +1,4 @@
-export type Status = 'none' | 'noanswer' | 'no' | 'follow' | 'appt' | 'sale';
+export type Status = 'none' | 'noanswer' | 'no' | 'follow' | 'appt' | 'sale' | 'empty';
 
 export interface Road {
   id: string;
@@ -49,7 +49,8 @@ export const STATUS_LABEL: Record<Status, string> = {
   no: 'Not interested',
   follow: 'Follow-up',
   appt: 'Appointment',
-  sale: 'Sale'
+  sale: 'Sale',
+  empty: 'Empty house'
 };
 
-export const STATUS_ORDER: Status[] = ['noanswer', 'no', 'follow', 'appt', 'sale', 'none'];
+export const STATUS_ORDER: Status[] = ['noanswer', 'no', 'follow', 'appt', 'sale', 'empty', 'none'];

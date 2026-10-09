@@ -170,3 +170,17 @@ describe('stale GPS', () => {
     expect(store.houses[0].lat).toBeGreaterThan(before + 0.0002);
   });
 });
+
+describe('empty houses', () => {
+  it('saves an empty house with a check-back date', async () => {
+    nominatim = { road: 'Foxglove Drive', house_number: '11' };
+    await knock();
+    click('confirm-yes');
+    click('empty');
+    click('empty-save', { d: '14' });
+    await sleep(60);
+    const h = store.houses[0];
+    expect(h.status).toBe('empty');
+    expect(h.appt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});

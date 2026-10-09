@@ -75,3 +75,13 @@ describe('distance', () => {
     expect(Math.round(distance(51, 0, 51.001, 0))).toBeLessThan(117);
   });
 });
+
+import { dueEmpty, inDays } from '../src/logic';
+describe('empty house reminders', () => {
+  it('flags empty houses once their date arrives', () => {
+    const now = Date.now();
+    const mk = (status: string, appt: string) => ({ id: appt + status, roadId: 'r', num: '1', lat: 0, lng: 0, status, name: '', phone: '', note: '', appt, ts: now }) as never;
+    const hs = [mk('empty', inDays(-1, now)), mk('empty', inDays(0, now)), mk('empty', inDays(5, now)), mk('empty', ''), mk('sale', inDays(-3, now))];
+    expect(dueEmpty(hs, now)).toHaveLength(2);
+  });
+});

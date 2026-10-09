@@ -1,7 +1,7 @@
 import type { House, Road, Snapshot, Status } from './types';
 import { STATUS_LABEL } from './types';
 
-const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale']);
+const STATUSES = new Set<string>(['none', 'noanswer', 'no', 'follow', 'appt', 'sale', 'empty']);
 
 export function makeBackup(s: Snapshot, now = Date.now()): string {
   return JSON.stringify({ app: 'door2door', version: 1, exportedAt: new Date(now).toISOString(), ...s });

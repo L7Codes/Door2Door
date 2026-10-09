@@ -95,7 +95,7 @@ export function tally(houses: House[], now: number): Tally {
   for (const h of houses) {
     if (h.ts < from || h.status === 'none') continue;
     t.doors++;
-    if (h.status !== 'noanswer') t.answered++;
+    if (h.status !== 'noanswer' && h.status !== 'empty') t.answered++;
     if (h.status === 'appt') t.booked++;
     if (h.status === 'sale') t.sales++;
   }
@@ -117,4 +117,22 @@ export function mergeSnapshots(current: Snapshot, incoming: Snapshot): Snapshot 
     if (!have || h.ts > have.ts) houses.set(h.id, h);
   }
   return { houses: [...houses.values()], roads: [...roads.values()], cursor: current.cursor };
+}
+
+/** 'YYYY-MM-DD' for a date a number of days from now, in local time. */
+export function inDays(days: number, now = Date.now()): string {
+  const d = new Date(now + days * 86400000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Empty houses whose check-back date has arrived. */
+export function dueEmpty(houses: House[], now = Date.now()): House[] {
+  const today = inDays(0, now);
+  return houses.filter((h) => h.status === 'empty' && h.appt && h.appt.slice(0, 10) <= today);
+}
+
+/** 14/10 style date for display. */
+export function shortDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  return m ? `${m[3]}/${m[2]}` : iso;
 }

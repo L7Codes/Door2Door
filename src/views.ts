@@ -1,6 +1,6 @@
 import { $, esc } from './dom';
 import { makeBackup, parseBackup, saveFile, toCsv } from './backup';
-import { mergeSnapshots } from './logic';
+import { mergeSnapshots, shortDate } from './logic';
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Road, Status } from './types';
@@ -28,8 +28,9 @@ export function openHouse(id: string): void {
   if (!h) return;
   const r = store.road(h.roadId);
   sheet.show(`<h2><span class="dot s-${h.status}"></span><span class="plate">${esc(h.num || '?')}</span> ${esc(r?.name ?? 'Unnamed road')}</h2>
-    <p>${STATUS_LABEL[h.status]}${h.appt ? ' · ' + esc(h.appt.replace('T', ' ')) : ''}</p>
+    <p>${STATUS_LABEL[h.status]}${h.status === 'empty' ? (h.appt ? ' · check back ' + esc(shortDate(h.appt)) : '') : h.appt ? ' · ' + esc(h.appt.replace('T', ' ')) : ''}</p>
     <div class="row tight">${statusButtons(id)}</div>
+    ${h.status === 'empty' ? `<label for="e-date">Check back on</label><input id="e-date" type="date" value="${esc(h.appt.slice(0, 10))}">` : ''}
     <label for="e-name">Name</label><input id="e-name" autocomplete="off" value="${esc(h.name)}">
     <label for="e-phone">Phone</label><input id="e-phone" inputmode="tel" autocomplete="off" value="${esc(h.phone)}">
     <label for="e-note">Note</label><textarea id="e-note" rows="2">${esc(h.note)}</textarea>
@@ -63,7 +64,7 @@ export function handleViewAction(a: string, el: HTMLElement): boolean {
       const h = store.house(id);
       if (h) {
         void store
-          .putHouse({ ...h, name: val('e-name'), phone: val('e-phone'), note: val('e-note'), num: val('e-num').trim().toUpperCase() })
+          .putHouse({ ...h, name: val('e-name'), phone: val('e-phone'), note: val('e-note'), num: val('e-num').trim().toUpperCase(), appt: h.status === 'empty' && document.getElementById('e-date') ? val('e-date') : h.appt })
           .then(() => {
             hooks.changed();
             sheet.close();
@@ -220,8 +221,8 @@ export function renderRoads(): void {
       const sorted = [...houses].sort((a, b) => (parseInt(a.num, 10) || 0) - (parseInt(b.num, 10) || 0));
       return `<article class="road"><header><h3>${esc(road?.name ?? 'Needs a road')}</h3>
         <p>${esc(road?.area ?? '')} ${road ? '' : 'Pins dropped without a road name.'}</p>
-        <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold</p></header>
-        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
+        <p class="counts">${houses.length} knocked · ${c('follow')} follow-up · ${c('appt')} booked · ${c('sale')} sold${c('empty') ? ` · ${c('empty')} empty` : ''}</p></header>
+        ${sorted.map((h) => `<button class="hrow" data-goto="${h.id}"><span class="dot s-${h.status}"></span><b>${esc(h.num || '?')}</b><span class="what">${esc([h.status === 'empty' && h.appt ? `Empty, check back ${shortDate(h.appt)}` : STATUS_LABEL[h.status], h.name, h.note].filter(Boolean).join(' · '))}</span></button>`).join('')}
         ${road ? `<button class="btn sm" data-rename="${road.id}">Rename road</button>` : ''}</article>`;
     })
     .join('');

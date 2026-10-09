@@ -1,6 +1,6 @@
 import { $, esc } from './dom';
 import { freshPosition, lookup, type Fix } from './geo';
-import { cursorFor, distance, guessNext, matchRoad, nearbyRoads, normaliseRoad, uid } from './logic';
+import { cursorFor, distance, guessNext, inDays, matchRoad, nearbyRoads, normaliseRoad, uid } from './logic';
 import { store } from './store';
 import { sheet, toast } from './ui';
 import type { House, Lookup, Road, Status } from './types';
@@ -168,7 +168,15 @@ function stepOutcome(): void {
   const r = store.road(f.roadId);
   sheet.swap(`<h2><span class="plate">${esc(f.num || '?')}</span> ${esc(r?.name ?? '')}</h2><p>What happened?</p>
     <div class="row"><button class="btn big s-noanswer" data-a="save" data-s="noanswer">No answer</button><button class="btn big" data-a="answered">Answered</button></div>
+    <div class="row"><button class="btn big s-empty" data-a="empty">Empty house / not moved in</button></div>
     <div class="row"><button class="btn quiet" data-a="back-id">Change address</button></div>`);
+}
+
+function stepEmpty(): void {
+  const opts: [string, number][] = [['2 weeks', 14], ['1 month', 30], ['2 months', 60]];
+  sheet.swap(`<h2>Empty house</h2><p>When should it remind you to check back?</p>
+    <div class="row">${opts.map(([l, d]) => `<button class="btn big s-empty" data-a="empty-save" data-d="${d}">${l}</button>`).join('')}</div>
+    <div class="row"><button class="btn" data-a="empty-save" data-d="0">No reminder</button><button class="btn quiet" data-a="outcome">Back</button></div>`);
 }
 
 function stepAnswered(): void {
@@ -323,6 +331,12 @@ export function handleFlowAction(a: string, el: HTMLElement): boolean {
       return true;
     }
     case 'outcome': stepOutcome(); return true;
+    case 'empty': stepEmpty(); return true;
+    case 'empty-save': {
+      const d = parseInt(el.dataset['d'] ?? '0', 10);
+      void commit('empty', { appt: d ? inDays(d) : '' });
+      return true;
+    }
     case 'answered': stepAnswered(); return true;
     case 'not-int': stepNotInterested(); return true;
     case 'reason': void commit('no', { note: el.dataset['r'] ?? '' }); return true;

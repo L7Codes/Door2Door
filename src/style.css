@@ -15,6 +15,7 @@
   --c-follow: #7f49c4;
   --c-appt: #2674d6;
   --c-sale: #1b9a58;
+  --c-empty: #0e9aa7;
   --font-body: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-num: 'Barlow Condensed', 'Arial Narrow', 'Helvetica Neue', Arial, sans-serif;
   color-scheme: light;
@@ -47,6 +48,7 @@ button { cursor: pointer; touch-action: manipulation; }
 .s-follow { --c: var(--c-follow); --on: #fff; }
 .s-appt { --c: var(--c-appt); --on: #fff; }
 .s-sale { --c: var(--c-sale); --on: #fff; }
+.s-empty { --c: var(--c-empty); --on: #fff; }
 
 /* Today strip */
 #top { padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px; background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -73,6 +75,7 @@ button { cursor: pointer; touch-action: manipulation; }
 .pin.long { font-size: 12px; }
 .pin.s-appt { border-radius: 11px; }
 .pin.s-sale { border-radius: 5px; }
+.pin.s-empty { border-style: dashed; }
 
 /* Notice + toast */
 #notice { position: absolute; top: 12px; left: 12px; right: 72px; z-index: 600; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25); }
